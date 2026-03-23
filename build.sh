@@ -78,6 +78,7 @@ for PLATFORM in "darwin-amd64" "darwin-arm64" "windows-amd64" "linux-amd64"; do
     
     # Copy configuration and docs
     [ -f "config.json" ] && cp config.json "${TEMP_DIR}/"
+    [ -f "config.example.json" ] && cp config.example.json "${TEMP_DIR}/"
     [ -f "README.md" ] && cp README.md "${TEMP_DIR}/"
     
     # Create Archive
