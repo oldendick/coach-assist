@@ -8,6 +8,9 @@ type DriveItem struct {
 
 // WorkspaceService defines the exact abstract behaviors interacting with external Google dependencies.
 type WorkspaceService interface {
+	// Probe checks if the service (e.g. gws binary) is functional and authenticated.
+	Probe() error
+
 	// DownloadLatestAttachment searches Gmail and extracts the attachment to destFilename.
 	// Returns the original attachment filename from the email and any error.
 	DownloadLatestAttachment(subjectQuery, destFilename string, log func(string)) (originalFilename string, err error)

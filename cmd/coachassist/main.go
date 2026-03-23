@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/oldendick/coach-assist/internal/config"
 	"github.com/oldendick/coach-assist/internal/drive"
@@ -21,8 +22,15 @@ func main() {
 		log.Fatalf("Active coach profile '%s' not found.", cfg.ActiveCoach)
 	}
 
-	fmt.Println("Warming up Google Workspace Service engine...")
+	fmt.Print("Warming up Google Workspace Service engine... ")
 	driveSvc := drive.NewGWSClient(cfg)
+	if err := driveSvc.Probe(); err != nil {
+		fmt.Printf("\n\n[!] Connectivity Probe Failed: %v\n", err)
+		fmt.Println("    Please ensure you are authenticated by running:")
+		fmt.Println("    gws auth login")
+		os.Exit(1)
+	}
+	fmt.Println("Done.")
 
 	RunTUI(cfg, driveSvc, Version)
 }

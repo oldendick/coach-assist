@@ -57,6 +57,12 @@ func NewGWSClient(cfg *config.AppConfig) *GWSClient {
 	return &GWSClient{gwsPath: path}
 }
 
+// Probe checks if the 'gws' binary is functional and authenticated by calling 'drive about get'.
+func (g *GWSClient) Probe() error {
+	_, err := g.run("drive", "about", "get", "--params", `{"fields": "user"}`)
+	return err
+}
+
 // Compile check
 var _ WorkspaceService = (*GWSClient)(nil)
 
