@@ -1354,6 +1354,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					os.Remove(filepath.Join("artifacts", "latest-roster.xlsx"))
 					appState = state.AppState{} // Erase memory
 					assignments = nil           // Erase RAM slices
+					allScheduleRows = nil       // Flush master schedule data
 					folderStatusChecked = false
 
 					for i := 0; i < list.GetItemCount(); i++ {
