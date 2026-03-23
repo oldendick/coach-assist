@@ -53,7 +53,7 @@ curl -L -o "coach-assist-$VERSION.$EXT" "$ASSET_URL"
 
 # Extract
 echo "[4/4] Extracting $VERSION..."
-if [ "$EXT" == "zip" ]; then
+if [ "$EXT" = "zip" ]; then
     unzip -q "coach-assist-$VERSION.$EXT"
 else
     tar -xJf "coach-assist-$VERSION.$EXT"
