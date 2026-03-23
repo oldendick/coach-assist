@@ -18,6 +18,24 @@ import (
 	"github.com/oldendick/coach-assist/internal/state"
 )
 
+// isRowReference checks if a cell exists at row/col and has the expected reference string.
+// This prevents nil panics when navigating sparsely populated or empty tables.
+func isRowReference(table *tview.Table, row, col int, ref string) bool {
+	if row < 0 || row >= table.GetRowCount() {
+		return false
+	}
+	cell := table.GetCell(row, col)
+	if cell == nil {
+		return false
+	}
+	r := cell.GetReference()
+	if r == nil {
+		return false
+	}
+	s, ok := r.(string)
+	return ok && s == ref
+}
+
 func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version string) {
 	app := tview.NewApplication()
 	pages := tview.NewPages()
@@ -174,6 +192,11 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		addSection("── Group Teams ──", tcell.ColorGreen, groups)
 		addSection("── 1-on-1 Students ──", tcell.ColorAqua, solos)
 		addSection("── Reserved Slots ──", tcell.ColorDarkGray, reserved)
+
+		if row == 1 {
+			// No plans added - add a selectable placeholder to ensure navigation doesn't hang
+			table.SetCell(1, 0, tview.NewTableCell("  No pending assignments found.").SetSelectable(true).SetExpansion(1))
+		}
 
 		// Auto-select first data row (below the first header)
 		if table.GetRowCount() > 1 {
@@ -834,11 +857,25 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 	showExcelSheet := func(title, path, sheetName string) {
 		rows, err := ingest.ReadRawExcel(path, sheetName)
 		if err != nil {
+			masterScheduleTable.Clear()
+			masterScheduleTable.SetTitle(fmt.Sprintf(" %s (ESC/q: back) ", title))
+			msg := fmt.Sprintf("  File not found or unreadable.\n  Path: %s\n\n  Please sync the spreadsheet first (s/r keys).", path)
+			masterScheduleTable.SetCell(0, 0, tview.NewTableCell(msg).SetSelectable(true).SetExpansion(1))
+			pages.SwitchToPage("MasterSchedule")
+			app.SetFocus(masterScheduleTable)
 			return
 		}
 
-		// Calculate true max widths to intelligently fit columns (limit to 500 for safety)
 		renderRows := len(rows)
+		if renderRows == 0 {
+			masterScheduleTable.Clear()
+			masterScheduleTable.SetTitle(fmt.Sprintf(" %s (ESC/q: back) ", title))
+			masterScheduleTable.SetCell(0, 0, tview.NewTableCell("  No entries found in this spreadsheet.").SetSelectable(true).SetExpansion(1))
+			pages.SwitchToPage("MasterSchedule")
+			app.SetFocus(masterScheduleTable)
+			return
+		}
+
 		if renderRows > 500 {
 			renderRows = 500
 		}
@@ -1186,16 +1223,29 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		if event.Key() == tcell.KeyDown {
 			row, _ := table.GetSelection()
 			rowCount := table.GetRowCount()
+
+			// Safety: Check if there are ANY assignment rows to wrap around to
+			hasAny := false
+			for r := 0; r < rowCount; r++ {
+				if isRowReference(table, r, 0, "assignment") {
+					hasAny = true
+					break
+				}
+			}
+			if !hasAny {
+				return event
+			}
+
 			isLast := true
 			for r := row + 1; r < rowCount; r++ {
-				if table.GetCell(r, 0).GetReference() == "assignment" {
+				if isRowReference(table, r, 0, "assignment") {
 					isLast = false
 					break
 				}
 			}
 			if isLast {
 				for r := 0; r < rowCount; r++ {
-					if table.GetCell(r, 0).GetReference() == "assignment" {
+					if isRowReference(table, r, 0, "assignment") {
 						table.Select(r, 0)
 						return nil
 					}
@@ -1204,17 +1254,30 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		}
 		if event.Key() == tcell.KeyUp {
 			row, _ := table.GetSelection()
+			rowCount := table.GetRowCount()
+
+			// Safety: Check if there are ANY assignment rows to wrap around to
+			hasAny := false
+			for r := 0; r < rowCount; r++ {
+				if isRowReference(table, r, 0, "assignment") {
+					hasAny = true
+					break
+				}
+			}
+			if !hasAny {
+				return event
+			}
+
 			isFirst := true
 			for r := row - 1; r >= 0; r-- {
-				if table.GetCell(r, 0).GetReference() == "assignment" {
+				if isRowReference(table, r, 0, "assignment") {
 					isFirst = false
 					break
 				}
 			}
 			if isFirst {
-				rowCount := table.GetRowCount()
 				for r := rowCount - 1; r >= 0; r-- {
-					if table.GetCell(r, 0).GetReference() == "assignment" {
+					if isRowReference(table, r, 0, "assignment") {
 						table.Select(r, 0)
 						return nil
 					}
@@ -1291,9 +1354,9 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					for i := 0; i < list.GetItemCount(); i++ {
 						main, _ := list.GetItemText(i)
 						if strings.Contains(main, "Sync Master Schedule") {
-							list.SetItemText(i, "[ ] Sync Master Schedule", "Select latest .xlsx from Steven Lefkowitz")
+							list.SetItemText(i, "[ ] Sync Master Schedule", fmt.Sprintf("Select latest .xlsx from %s", cfg.GmailDiscovery.SenderName))
 						} else if strings.Contains(main, "Sync 'Who Makes Dives' Roster") {
-							list.SetItemText(i, "[ ] Sync 'Who Makes Dives' Roster", "Select latest .xlsx from Steven Lefkowitz")
+							list.SetItemText(i, "[ ] Sync 'Who Makes Dives' Roster", fmt.Sprintf("Select latest .xlsx from %s", cfg.GmailDiscovery.SenderName))
 						}
 					}
 				}
@@ -1302,7 +1365,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		app.SetFocus(confirmModal)
 	})
 
-	list.AddItem("Sync Master Schedule", "Select latest .xlsx from Steven Lefkowitz", 's', func() {
+	list.AddItem("Sync Master Schedule", fmt.Sprintf("Select latest .xlsx from %s", cfg.GmailDiscovery.SenderName), 's', func() {
 		showEmailPicker("Schedule", "latest-schedule.xlsx", func(origName, query string) {
 			appState.LastScheduleSubject = query
 			appState.LastScheduleFilename = origName
@@ -1313,7 +1376,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		})
 	})
 
-	list.AddItem("Sync 'Who Makes Dives' Roster", "Select latest .xlsx from Steven Lefkowitz", 'r', func() {
+	list.AddItem("Sync 'Who Makes Dives' Roster", fmt.Sprintf("Select latest .xlsx from %s", cfg.GmailDiscovery.SenderName), 'r', func() {
 		showEmailPicker("Roster", "latest-roster.xlsx", func(origName, query string) {
 			appState.LastRosterSubject = query
 			appState.LastRosterFilename = origName
@@ -1355,9 +1418,11 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			}
 		}
 		if rowIdx == 1 {
-			coachScheduleTable.SetCell(1, 0, tview.NewTableCell("No schedule entries found for you.").SetExpansion(1))
+			coachScheduleTable.SetCell(1, 0, tview.NewTableCell("No schedule entries found for you.").SetSelectable(true).SetExpansion(1))
+			coachScheduleTable.Select(1, 0)
+		} else {
+			coachScheduleTable.Select(1, 0)
 		}
-		coachScheduleTable.Select(0, 0)
 		coachScheduleTable.ScrollToBeginning()
 		pages.SwitchToPage("CoachSchedule")
 		app.SetFocus(coachScheduleTable)
