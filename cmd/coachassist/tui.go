@@ -68,6 +68,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		allScheduleRows = schedRows
 
 		// Merge persistent state
+		foundCached := false
 		for i := range assignments {
 			for _, cached := range appState.Assignments {
 				if assignments[i].SubjectName == cached.SubjectName && assignments[i].ArrivalDay == cached.ArrivalDay {
@@ -78,9 +79,13 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 						assignments[i].DriveFileID = cached.DriveFileID
 						assignments[i].IsWorkspaceCreated = cached.IsWorkspaceCreated
 						assignments[i].HasTrainingPlan = cached.HasTrainingPlan
+						foundCached = true
 					}
 				}
 			}
+		}
+		if foundCached {
+			folderStatusChecked = true
 		}
 	}
 
