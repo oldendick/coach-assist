@@ -1315,7 +1315,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				_ = config.SaveConfig("config.json", cfg)
 				loadAssignments()
 				folderStatusChecked = false
-				mainContainer.SetTitle(fmt.Sprintf(" COACH ASSIST - Active Profile: %s ", cfg.Coaches[coachKey].Name))
+				mainContainer.SetTitle(fmt.Sprintf(" COACH ASSIST %s - Active Profile: %s ", version, cfg.Coaches[coachKey].Name))
 				pages.RemovePage("CoachSelection")
 				app.SetFocus(list)
 			})
