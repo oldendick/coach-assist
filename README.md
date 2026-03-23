@@ -31,7 +31,7 @@ powershell -c "irm https://raw.githubusercontent.com/oldendick/coach-assist/main
    .\bin\gws.exe auth login
    ```
    Select the required permissions for Google Drive and Gmail:
-   <br/><img width="743" height="252" alt="image" src="https://github.com/user-attachments/assets/fdcb5cbc-bd9c-4dee-8811-4dddab0e2705" />
+   <br/><img width="743" height="252" alt="image" src="docs/images/google-oauth-permissions.png" />
 
 1. **Start**: Run the application:
    ```bash
