@@ -1,0 +1,23 @@
+**/.DS_Store
+client_secret*
+config.json
+
+# Local Go Sandbox Caches
+.go-cache/
+.go-tmp/
+
+# External binaries (explicitly track gws)
+/bin/*
+!/bin/gws-*
+
+# program binaries
+dist/
+
+# Runtime data
+artifacts/
+state.json
+tmp/
+
+# dev/test helper
+test-deploy.sh
+repo-reset.sh

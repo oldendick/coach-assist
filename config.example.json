@@ -1,0 +1,57 @@
+{
+  "active_coach": "Coach1",
+  "gws_path": "",
+  "coaches": {
+    "Coach1": {
+      "name": "Coach1",
+      "signature": "Thanks,\nCoach1\ncoach1@example.com\n555-555-5555",
+      "google_account": "coach1@example.com",
+      "gmail_account": "coach1@example.com",
+      "drafted_emails_from": "coach1@example.com",
+      "email_templates": {
+        "1on1": {
+          "initial_solo": {
+            "body": "Hi {firstname},\n\nI'm working on your 1-1 plan, what would you like to focus on?",
+            "include_cc": false,
+            "type": "initial"
+          },
+          "worksheet_link_solo": {
+            "body": "Hey {firstname},\n\nI have updated your training plan for the weekend.\n\nLink here: {folder_link}\n\nPlease let me know if you have any questions, otherwise I'll see you there!",
+            "include_cc": true,
+            "type": "plan"
+          }
+        },
+        "group": {
+          "initial_group": {
+            "body": "Hey all,\n\nI'm working on the plan for this weekend. Please let me know which specific slot(s) each of you would like to fly so I can tailor the dives appropriately!",
+            "include_cc": false,
+            "type": "initial"
+          },
+          "worksheet_link_group": {
+            "body": "Hey all,\n\nI have updated the training plan with jumps.\n\nLink here: {folder_link}\n\nPlease let me know if you have any questions, otherwise I'll see you there!",
+            "include_cc": true,
+            "type": "plan"
+          }
+        }
+      }
+    }
+  },
+  "workshop": {
+    "cc_emails": [
+      "manager1@example.com",
+      "manager2@example.com"
+    ]
+  },
+  "google_drive": {
+    "workshop_parent_folder_id": "PASTE_YOUR_FOLDER_ID_HERE",
+    "teams_folder_id": "PASTE_YOUR_FOLDER_ID_HERE",
+    "templates": {
+      "individual_skills_worksheet_id": "PASTE_YOUR_FILE_ID_HERE",
+      "team_training_plan_id": "PASTE_YOUR_FILE_ID_HERE"
+    }
+  },
+  "gmail_discovery": {
+    "sender_name": "Dispatcher Name",
+    "newer_than_days": 31
+  }
+}
