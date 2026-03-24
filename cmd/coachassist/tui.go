@@ -1043,7 +1043,18 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 				app.QueueUpdateDraw(func() {
 					if err != nil || len(messages) == 0 {
-						fmt.Fprintf(logView, "\n[red]No matching emails found.[-]\n\nPress q or ESC to cancel.")
+						if err != nil {
+							fmt.Fprintf(logView, "\n[red]Error searching Gmail: %v[-]\n", err)
+						} else {
+							fmt.Fprintf(logView, "\n[red]No matching emails found.[-]\n")
+						}
+						fmt.Fprintf(logView, "\nPress q or ESC to return.")
+						logView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+							if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+								closeLog()
+							}
+							return event
+						})
 						return
 					}
 
@@ -1082,7 +1093,13 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 							attachments, err := driveSvc.GetMessageAttachments(selectedMsg.ID)
 							if err != nil {
 								app.QueueUpdateDraw(func() {
-									fmt.Fprintf(logView, "\n[red]Failed to get attachments: %v[-]\n\nPress q or ESC.", err)
+									fmt.Fprintf(logView, "\n[red]Failed to get attachments: %v[-]\n\nPress q or ESC to return.", err)
+									logView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+										if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+											closeLog()
+										}
+										return event
+									})
 								})
 								return
 							}
@@ -1100,7 +1117,13 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 							if targetAttachID == "" {
 								app.QueueUpdateDraw(func() {
-									fmt.Fprintf(logView, "\n[red]No spreadsheet attachment found in this email.[-]\n\nPress q or ESC.")
+									fmt.Fprintf(logView, "\n[red]No spreadsheet attachment found in this email.[-]\n\nPress q or ESC to return.")
+									logView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+										if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+											closeLog()
+										}
+										return event
+									})
 								})
 								return
 							}
