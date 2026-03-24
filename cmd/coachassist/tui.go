@@ -1353,10 +1353,11 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		for _, key := range keys {
 			coachKey := key
 			profile := cfg.Coaches[coachKey]
-			label := fmt.Sprintf("%s (%s)", profile.Name, profile.DraftedFrom)
+			prefix := "  "
 			if coachKey == cfg.ActiveCoach {
-				label = "* " + label
+				prefix = "* "
 			}
+			label := fmt.Sprintf("%s%s (%s)", prefix, profile.Name, profile.DraftedFrom)
 			coachList.AddItem(label, "", rune(0), func() {
 				cfg.ActiveCoach = coachKey
 				_ = config.SaveConfig("config.json", cfg)
@@ -1368,7 +1369,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			})
 		}
 
-		coachList.AddItem("Cancel", "", 'q', func() {
+		coachList.AddItem("  Cancel", "", 'q', func() {
 			pages.RemovePage("CoachSelection")
 			app.SetFocus(list)
 		})
