@@ -28,6 +28,9 @@ jobs:
         run: go mod download
 
       - name: Run Build and Package Script
+        env:
+          GWS_CLIENT_ID: ${{ secrets.GWS_CLIENT_ID }}
+          GWS_CLIENT_SECRET: ${{ secrets.GWS_CLIENT_SECRET }}
         run: |
           chmod +x build.sh
           ./build.sh

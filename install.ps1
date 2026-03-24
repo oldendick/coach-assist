@@ -56,7 +56,7 @@ Write-Host "Coach Assist $Version has been installed to: $(Get-Location)\$Extrac
 Write-Host ""
 Write-Host "Next Steps:"
 Write-Host "1. Setup GWS:"
-Write-Host "   - Put your 'client_secret.json' in: %USERPROFILE%\.config\gws\client_secret.json"
+Write-Host "   - Run: gws auth login --services drive,gmail"
 Write-Host "   - Authenticate: cd $ExtractDir; .\bin\gws.exe auth login"
 Write-Host "2. Configure the app:"
 Write-Host "   - Copy 'config.example.json' to 'config.json' and edit it."

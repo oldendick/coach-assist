@@ -63,8 +63,46 @@ func (g *GWSClient) Probe() error {
 	return err
 }
 
+// Login performs an interactive OAuth2 login flow using 'gws auth login'.
+func (g *GWSClient) Login() error {
+	fmt.Println("\n[!] Authentication Required")
+	fmt.Println("Launching Google Workspace login flow...")
+	fmt.Println("Please follow the instructions in your browser.")
+	fmt.Println("-------------------------------------------")
+
+	cmd := exec.Command(g.gwsPath, "auth", "login", "--services", "drive,gmail")
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	env := os.Environ()
+	// Inject build-time secrets if they were provided via ldflags
+	if ClientID != "" {
+		env = append(env, "GOOGLE_WORKSPACE_CLI_CLIENT_ID="+ClientID)
+	}
+	if ClientSecret != "" {
+		env = append(env, "GOOGLE_WORKSPACE_CLI_CLIENT_SECRET="+ClientSecret)
+	}
+	env = append(env, "GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND=file")
+	cmd.Env = env
+
+	err := cmd.Run()
+	if err == nil {
+		fmt.Println("-------------------------------------------")
+		fmt.Println("Login successful!")
+	}
+	return err
+}
+
 // Compile check
 var _ WorkspaceService = (*GWSClient)(nil)
+
+var (
+	// ClientID and ClientSecret are populated at build-time via -ldflags if distributed as a bundle.
+	ClientID     string
+	ClientSecret string
+)
 
 // run safely dispatches the binary retaining local environment constants and macOS token bypass logic.
 func (g *GWSClient) run(args ...string) ([]byte, error) {
@@ -92,6 +130,15 @@ func (g *GWSClient) run(args ...string) ([]byte, error) {
 		}
 	}
 	env = append(env, "GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND=file")
+
+	// Inject build-time secrets if they were provided via ldflags
+	if ClientID != "" {
+		env = append(env, "GOOGLE_WORKSPACE_CLI_CLIENT_ID="+ClientID)
+	}
+	if ClientSecret != "" {
+		env = append(env, "GOOGLE_WORKSPACE_CLI_CLIENT_SECRET="+ClientSecret)
+	}
+
 	cmd.Env = env
 
 	var out bytes.Buffer

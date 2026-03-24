@@ -11,6 +11,9 @@ type WorkspaceService interface {
 	// Probe checks if the service (e.g. gws binary) is functional and authenticated.
 	Probe() error
 
+	// Login performs an interactive OAuth2 login flow using 'gws auth login'.
+	Login() error
+
 	// DownloadLatestAttachment searches Gmail and extracts the attachment to destFilename.
 	// Returns the original attachment filename from the email and any error.
 	DownloadLatestAttachment(subjectQuery, destFilename string, log func(string)) (originalFilename string, err error)

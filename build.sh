@@ -10,7 +10,28 @@
 set -e
 
 # Get version from Git
-VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "unknown")
+VERSION=${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo "v0.0.1")}
+
+# Support build-time secret injection via environment variables or local file
+if [ -z "$GWS_CLIENT_ID" ] || [ -z "$GWS_CLIENT_SECRET" ]; then
+    SECRET_FILE=$(ls client_secret*.json 2>/dev/null | head -n 1)
+    if [ -n "$SECRET_FILE" ]; then
+        echo "Found local secret file: $SECRET_FILE (Extracting ID/Secret)"
+        GWS_CLIENT_ID=$(grep -o '"client_id":"[^"]*' "$SECRET_FILE" | cut -d'"' -f4)
+        GWS_CLIENT_SECRET=$(grep -o '"client_secret":"[^"]*' "$SECRET_FILE" | cut -d'"' -f4)
+    fi
+fi
+
+ID_FLAG=""
+SECRET_FLAG=""
+if [ -n "$GWS_CLIENT_ID" ]; then
+    ID_FLAG="-X github.com/oldendick/coach-assist/internal/drive.ClientID=${GWS_CLIENT_ID}"
+fi
+if [ -n "$GWS_CLIENT_SECRET" ]; then
+    SECRET_FLAG="-X github.com/oldendick/coach-assist/internal/drive.ClientSecret=${GWS_CLIENT_SECRET}"
+fi
+
+LD_FLAGS="-X main.Version=${VERSION} ${ID_FLAG} ${SECRET_FLAG}"
 
 APP_NAME="coachassist"
 SRC_PATH="./cmd/coachassist"
@@ -23,19 +44,19 @@ echo "--- Starting Coach Assist ${VERSION} Build ---"
 
 # 1. macOS Intel
 echo "[1/4] Building for macOS (Intel amd64)..."
-GOOS=darwin GOARCH=amd64 go build -ldflags="-X main.Version=${VERSION}" -o "$OUT_DIR/${APP_NAME}-darwin-amd64" "$SRC_PATH"
+GOOS=darwin GOARCH=amd64 go build -ldflags="${LD_FLAGS}" -o "$OUT_DIR/${APP_NAME}-darwin-amd64" "$SRC_PATH"
 
 # 2. macOS Apple Silicon
 echo "[2/4] Building for macOS (Apple Silicon arm64)..."
-GOOS=darwin GOARCH=arm64 go build -ldflags="-X main.Version=${VERSION}" -o "$OUT_DIR/${APP_NAME}-darwin-arm64" "$SRC_PATH"
+GOOS=darwin GOARCH=arm64 go build -ldflags="${LD_FLAGS}" -o "$OUT_DIR/${APP_NAME}-darwin-arm64" "$SRC_PATH"
 
 # 3. Windows 64-bit
 echo "[3/4] Building for Windows (amd64)..."
-GOOS=windows GOARCH=amd64 go build -ldflags="-X main.Version=${VERSION}" -o "$OUT_DIR/${APP_NAME}-windows-amd64.exe" "$SRC_PATH"
+GOOS=windows GOARCH=amd64 go build -ldflags="${LD_FLAGS}" -o "$OUT_DIR/${APP_NAME}-windows-amd64.exe" "$SRC_PATH"
 
 # 4. Linux 64-bit
 echo "[4/4] Building for Linux (amd64)..."
-GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=${VERSION}" -o "$OUT_DIR/${APP_NAME}-linux-amd64" "$SRC_PATH"
+GOOS=linux GOARCH=amd64 go build -ldflags="${LD_FLAGS}" -o "$OUT_DIR/${APP_NAME}-linux-amd64" "$SRC_PATH"
 
 echo "--- Build Complete! ---"
 

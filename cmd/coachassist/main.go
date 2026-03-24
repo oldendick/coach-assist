@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/oldendick/coach-assist/internal/config"
 	"github.com/oldendick/coach-assist/internal/drive"
@@ -25,10 +24,18 @@ func main() {
 	fmt.Print("Warming up Google Workspace Service engine... ")
 	driveSvc := drive.NewGWSClient(cfg)
 	if err := driveSvc.Probe(); err != nil {
-		fmt.Printf("\n\n[!] Connectivity Probe Failed: %v\n", err)
-		fmt.Println("    Please ensure you are authenticated by running:")
-		fmt.Println("    gws auth login")
-		os.Exit(1)
+		fmt.Printf("\n[!] Connectivity Probe Failed: %v\n", err)
+
+		// Interactive login attempt
+		if loginErr := driveSvc.Login(); loginErr != nil {
+			log.Fatalf("Authentication failed: %v", loginErr)
+		}
+
+		// Retry probe after login
+		fmt.Print("Re-verifying connectivity... ")
+		if err := driveSvc.Probe(); err != nil {
+			log.Fatalf("\nConnectivity probe failed after login: %v", err)
+		}
 	}
 	fmt.Println("Done.")
 
