@@ -7,6 +7,7 @@ import (
 
 // AppConfig represents the root structure of config.json
 type AppConfig struct {
+	Version        int                  `json:"version"`
 	ActiveCoach    string               `json:"active_coach"`
 	GWSPath        string               `json:"gws_path"`
 	Coaches        map[string]CoachProfile `json:"coaches"`
