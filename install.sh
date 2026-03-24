@@ -65,6 +65,15 @@ rm "coach-assist-$VERSION.$EXT"
 # The package structure contains a folder named coach-assist-$VERSION
 INSTALL_DIR="coach-assist-$VERSION"
 
+# If on macOS, clear the quarantine bit on the extracted binaries
+if [ "$OS" = "darwin" ]; then
+    echo "Processing macOS security permissions..."
+    # Clear quarantine for the main app and the gws helper
+    # This works without sudo for files the user owns
+    xattr -d com.apple.quarantine "$INSTALL_DIR/$APP_NAME" 2>/dev/null || true
+    xattr -d com.apple.quarantine "$INSTALL_DIR/bin/gws" 2>/dev/null || true
+fi
+
 echo ""
 echo "--- Installation Successful! ---"
 echo "Coach Assist $VERSION has been installed to: $PWD/$INSTALL_DIR"

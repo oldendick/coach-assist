@@ -16,6 +16,18 @@ mkdir programs; cd programs
 powershell -c "irm https://raw.githubusercontent.com/oldendick/coach-assist/main/install.ps1 | iex"
 ```
 
+### 🍎 macOS Security (Manual Install)
+If you download the `.zip` manually via a browser, macOS will label the app as "untrusted." 
+
+**To fix this:**
+1.  **Right-click** `coachassist` (and `bin/gws`) and select **Open**.
+2.  Or, run this in your terminal to fix both binaries:
+    ```bash
+    xattr -r -d com.apple.quarantine coachassist
+    xattr -r -d com.apple.quarantine bin/gws
+    ```
+*(If you used the `curl` installer at the top of this page, this is handled for you automatically!)*
+
 ---
 
 ## Windows Setup (Using Release) (Manual)
