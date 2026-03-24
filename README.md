@@ -68,3 +68,9 @@ Releases are automated via GitHub Actions.
 
 Once pushed, GitHub will automatically build binaries for all platforms, package them into optimized archives, and create a formal GitHub Release with all assets attached.
 
+---
+
+## Acknowledgements
+
+- **[GWS](https://github.com/colorbox/gws)**: A powerful Google Workspace CLI tool used for authentication and Drive/Gmail interactions. Licensed under Apache 2.0. See [THIRD_PARTY_NOTICES.md](file:///Users/oldendic/git/coach-assist/THIRD_PARTY_NOTICES.md) for details.
+
