@@ -74,6 +74,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				if assignments[i].SubjectName == cached.SubjectName && assignments[i].ArrivalDay == cached.ArrivalDay {
 					assignments[i].IsDiscoveryDrafted = cached.IsDiscoveryDrafted
 					assignments[i].IsFinalPlanDrafted = cached.IsFinalPlanDrafted
+					assignments[i].IsFollowUpSent = cached.IsFollowUpSent
 					// Also carry over Drive state if it was already resolved
 					if cached.DriveFileID != "" {
 						assignments[i].DriveFileID = cached.DriveFileID
@@ -122,6 +123,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		table.SetCell(0, 5, tview.NewTableCell("Plan").SetSelectable(false).SetTextColor(tcell.ColorYellow))
 		table.SetCell(0, 6, tview.NewTableCell("Outreach").SetSelectable(false).SetTextColor(tcell.ColorYellow))
 		table.SetCell(0, 7, tview.NewTableCell("Plan Sent").SetSelectable(false).SetTextColor(tcell.ColorYellow))
+		table.SetCell(0, 8, tview.NewTableCell("Follow-up").SetSelectable(false).SetTextColor(tcell.ColorYellow))
 
 		// Bucket assignments into categories
 		var solos, groups, reserved []domain.FlightPlan
@@ -149,6 +151,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			table.SetCell(row, 5, tview.NewTableCell("").SetSelectable(false))
 			table.SetCell(row, 6, tview.NewTableCell("").SetSelectable(false))
 			table.SetCell(row, 7, tview.NewTableCell("").SetSelectable(false))
+			table.SetCell(row, 8, tview.NewTableCell("").SetSelectable(false))
 			row++
 
 			for _, plan := range plans {
@@ -188,8 +191,13 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				if plan.IsFinalPlanDrafted {
 					planSentIcon = "✅"
 				}
+				followUpIcon := "❌"
+				if plan.IsFollowUpSent {
+					followUpIcon = "✅"
+				}
 				table.SetCell(row, 6, tview.NewTableCell(outreachIcon).SetAlign(tview.AlignCenter))
 				table.SetCell(row, 7, tview.NewTableCell(planSentIcon).SetAlign(tview.AlignCenter))
+				table.SetCell(row, 8, tview.NewTableCell(followUpIcon).SetAlign(tview.AlignCenter))
 				row++
 			}
 		}
@@ -646,12 +654,17 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				}
 			}
 
-			// Sort template names for stability
+			// Sort template names by SortOrder, then by name for stability
 			var names []string
 			for name := range templates {
 				names = append(names, name)
 			}
-			sort.Strings(names)
+			sort.Slice(names, func(i, j int) bool {
+				if templates[names[i]].SortOrder != templates[names[j]].SortOrder {
+					return templates[names[i]].SortOrder < templates[names[j]].SortOrder
+				}
+				return names[i] < names[j]
+			})
 
 			var curDraft struct {
 				from, to, cc, subj, body string
@@ -688,7 +701,16 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				curDraft.from = coach.DraftedFrom
 				curDraft.to = toEmails
 				curDraft.cc = ccEmails
-				curDraft.subj = "Training Plan: " + targetPlan.SubjectName
+
+				subj := tmpl.Subject
+				if subj == "" {
+					subj = "Training Plan: {name}"
+				}
+				subj = strings.ReplaceAll(subj, "{name}", targetPlan.SubjectName)
+				subj = strings.ReplaceAll(subj, "{groupname}", targetPlan.SubjectName)
+				subj = strings.ReplaceAll(subj, "{firstname}", firstName)
+				curDraft.subj = subj
+
 				curDraft.body = populatedBody + "\n\n"
 				if coach.Signature != "" {
 					curDraft.body += coach.Signature
@@ -727,6 +749,8 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 									targetPlan.IsDiscoveryDrafted = true
 								} else if selectedTemplate.Type == "plan" {
 									targetPlan.IsFinalPlanDrafted = true
+								} else if selectedTemplate.Type == "follow_up" {
+									targetPlan.IsFollowUpSent = true
 								}
 								// Update appState and persist
 								appState.Assignments = assignments

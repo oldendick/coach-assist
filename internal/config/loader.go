@@ -21,9 +21,11 @@ type GmailDiscoveryConfig struct {
 }
 
 type EmailTemplate struct {
+	Subject   string `json:"subject"`
 	Body      string `json:"body"`
 	IncludeCC bool   `json:"include_cc"`
 	Type      string `json:"type"`
+	SortOrder int    `json:"sort_order"`
 }
 
 type CoachProfile struct {

@@ -21,4 +21,5 @@ type FlightPlan struct {
 	HasTrainingPlan    bool
 	IsDiscoveryDrafted bool
 	IsFinalPlanDrafted bool
+	IsFollowUpSent     bool
 }
