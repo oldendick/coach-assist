@@ -50,7 +50,7 @@
           },
           "follow_up_workshop": {
             "subject": "Following up - {groupname}",
-            "body": "Hi {firstname},\n\nGreat flying with you at the workshop! Check out the schedule here: https://rhythmskydiving.com/schedule/",
+            "body": "Hi {groupname},\n\nGreat flying with you at the workshop! Check out the schedule here: https://rhythmskydiving.com/schedule/",
             "include_cc": false,
             "type": "follow_up",
             "sort_order": 3

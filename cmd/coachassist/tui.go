@@ -683,7 +683,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				firstName := strings.Split(targetPlan.SubjectName, " ")[0]
 				populatedBody := body
 				populatedBody = strings.ReplaceAll(populatedBody, "{folder_link}", folderLink)
-				populatedBody = strings.ReplaceAll(populatedBody, "{group_name}", targetPlan.SubjectName)
+				populatedBody = strings.ReplaceAll(populatedBody, "{groupname}", targetPlan.SubjectName)
 				populatedBody = strings.ReplaceAll(populatedBody, "{name}", targetPlan.SubjectName)
 				populatedBody = strings.ReplaceAll(populatedBody, "{firstname}", firstName)
 				populatedBody = strings.ReplaceAll(populatedBody, "{initial_meet_time}", targetPlan.ArrivalTime)
@@ -692,7 +692,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				if toEmails == "" {
 					toEmails = "[red](No student emails found)[-]"
 				}
-				
+
 				ccEmails := ""
 				if tmpl.IncludeCC {
 					ccEmails = strings.Join(cfg.Workshop.CCEmails, ", ")
@@ -1449,7 +1449,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 	list.AddItem("View Current Coach's Schedule", "", 'v', func() {
 		coachName := cfg.Coaches[cfg.ActiveCoach].Name
-		
+
 		coachScheduleTable.SetTitle(fmt.Sprintf(" Schedule for Coach: %s (ESC/q to back) ", coachName))
 		coachScheduleTable.Clear()
 		coachScheduleTable.SetCell(0, 0, tview.NewTableCell("Date").SetTextColor(tcell.ColorYellow))
