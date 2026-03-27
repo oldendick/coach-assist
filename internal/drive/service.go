@@ -59,6 +59,9 @@ type WorkspaceService interface {
 
 	// CreateDraft creates a new draft email in Gmail.
 	CreateDraft(from, to, cc, subject, body string) error
+
+	// GetFileInfo returns basic metadata for a Drive file or folder.
+	GetFileInfo(id string) (DriveItem, error)
 }
 
 // MessageSummary represents basic metadata for a Gmail message.

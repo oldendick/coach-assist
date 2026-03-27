@@ -44,6 +44,31 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 	var assignments []domain.FlightPlan
 	var allScheduleRows []domain.ScheduleRow
 	folderStatusChecked := false
+	driveNameCache := make(map[string]string)
+
+	// resolveDriveNames fetches actual names from Google Drive to avoid hard-coding
+	resolveDriveNames := func() {
+		ids := []string{
+			cfg.Drive.WorkshopParentFolderID,
+			cfg.Drive.TeamsFolderID,
+			cfg.Drive.Templates.IndividualSkillsWorksheetID,
+			cfg.Drive.Templates.TeamTrainingPlanID,
+		}
+
+		for _, id := range ids {
+			if id == "" {
+				continue
+			}
+			go func(fid string) {
+				info, err := driveSvc.GetFileInfo(fid)
+				if err == nil {
+					app.QueueUpdateDraw(func() {
+						driveNameCache[fid] = info.Name
+					})
+				}
+			}(id)
+		}
+	}
 
 	// loadAssignments attempts to parse both Excel files and build real assignments.
 	// Returns silently if either file is missing (they just haven't been synced yet).
@@ -92,6 +117,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 	// Try loading on boot if files exist
 	loadAssignments()
+	resolveDriveNames()
 
 	list := tview.NewList()
 	list.SetBorder(true).SetTitle(" Main Menu ").SetTitleAlign(tview.AlignLeft)
@@ -309,6 +335,22 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 	detailPage.AddItem(detailBody, 0, 1, true)
 
+	showConfirmModal := func(text string, onConfirm func(), cancelFocus tview.Primitive) {
+		confirmModal := tview.NewModal().
+			SetText(text).
+			AddButtons([]string{"Proceed", "Cancel"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				pages.RemovePage("ConfirmModal")
+				if buttonLabel == "Proceed" {
+					onConfirm()
+				} else {
+					app.SetFocus(cancelFocus)
+				}
+			})
+		pages.AddPage("ConfirmModal", confirmModal, true, true)
+		app.SetFocus(confirmModal)
+	}
+
 	table.SetSelectedFunc(func(row, column int) {
 		if row < 1 || row >= table.GetRowCount() {
 			return
@@ -343,10 +385,32 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		}
 
 		detailMenu.AddItem(createLabel, "Initialize folder and template on Google Drive", 'c', func() {
-			detailBody.SwitchToPage("Text")
-			detailText.SetText("\n\n[yellow][-] Step 1: Evaluating Drive Hierarchy...[-]\n\n")
+			// Resolve names from cache, fall back to generic if not yet loaded
+			parentID := cfg.Drive.WorkshopParentFolderID
+			templateID := cfg.Drive.Templates.IndividualSkillsWorksheetID
+			if targetPlan.IsGroup {
+				parentID = cfg.Drive.TeamsFolderID
+				templateID = cfg.Drive.Templates.TeamTrainingPlanID
+			}
 
-			go func() {
+			parentName := driveNameCache[parentID]
+			templateName := driveNameCache[templateID]
+
+			if parentName == "" {
+				parentName = "Google Drive Folder"
+			}
+			if templateName == "" {
+				templateName = "Template Spreadsheet"
+			}
+
+			prompt := fmt.Sprintf("Confirm Action: Create folder '%s' in '%s' and clone '%s' template.",
+				targetPlan.SubjectName, parentName, templateName)
+
+			showConfirmModal(prompt, func() {
+				detailBody.SwitchToPage("Text")
+				detailText.SetText("\n\n[yellow][-] Step 1: Evaluating Drive Hierarchy...[-]\n\n")
+
+				go func() {
 				// 1. Determine Parents & Templates
 				parentID := cfg.Drive.WorkshopParentFolderID
 				templateID := cfg.Drive.Templates.IndividualSkillsWorksheetID
@@ -496,7 +560,8 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					detailText.SetText(successMsg)
 				})
 			}()
-		})
+		}, detailMenu)
+	})
 
 		detailMenu.AddItem("", "", 0, nil) // Spacer at index 1
 
@@ -1362,6 +1427,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				cfg.ActiveCoach = coachKey
 				_ = config.SaveConfig("config.json", cfg)
 				loadAssignments()
+				resolveDriveNames()
 				folderStatusChecked = false
 				mainContainer.SetTitle(fmt.Sprintf(" COACH ASSIST %s - Active Profile: %s ", version, cfg.Coaches[coachKey].Name))
 				pages.RemovePage("CoachSelection")

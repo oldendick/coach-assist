@@ -586,6 +586,30 @@ func (g *GWSClient) GetMessageAttachments(messageID string) ([]AttachmentInfo, e
 	return attachments, nil
 }
 
+// GetFileInfo returns basic metadata for a Drive file or folder.
+func (g *GWSClient) GetFileInfo(id string) (DriveItem, error) {
+	params, _ := json.Marshal(map[string]interface{}{
+		"fileId":            id,
+		"fields":            "name,id",
+		"supportsAllDrives": true,
+	})
+
+	out, err := g.run("drive", "files", "get", "--params", string(params))
+	if err != nil {
+		return DriveItem{}, fmt.Errorf("failed fetching file info for '%s': %w", id, err)
+	}
+
+	var resp struct {
+		Name string `json:"name"`
+		ID   string `json:"id"`
+	}
+	if err := json.Unmarshal(out, &resp); err != nil {
+		return DriveItem{}, fmt.Errorf("parsing drive response for '%s': %w", id, err)
+	}
+
+	return DriveItem{Name: resp.Name, ID: resp.ID}, nil
+}
+
 // DownloadAttachment downloads a specific attachment from a message.
 func (g *GWSClient) DownloadAttachment(messageID, attachmentID, destFilename string) error {
 	aBytes, _ := json.Marshal(map[string]string{
