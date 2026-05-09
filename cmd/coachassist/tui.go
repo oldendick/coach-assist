@@ -1635,7 +1635,11 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			if coachKey == cfg.ActiveCoach {
 				prefix = "* "
 			}
-			label := fmt.Sprintf("%s%s (%s)", prefix, profile.Name, profile.DraftedFrom)
+			aliasStr := ""
+			if len(profile.Aliases) > 0 {
+				aliasStr = fmt.Sprintf(" (aliases: %s)", strings.Join(profile.Aliases, ", "))
+			}
+			label := fmt.Sprintf("%s%s (%s)%s", prefix, profile.Name, profile.DraftedFrom, aliasStr)
 			coachList.AddItem(label, "", rune(0), func() {
 				cfg.ActiveCoach = coachKey
 				_ = config.SaveConfig("config.json", cfg)
@@ -1658,7 +1662,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 				AddItem(nil, 0, 1, false).
 				AddItem(coachList, len(cfg.Coaches)+4, 1, true).
-				AddItem(nil, 0, 1, false), 50, 1, true).
+				AddItem(nil, 0, 1, false), 80, 1, true).
 			AddItem(nil, 0, 1, false)
 
 		pages.AddPage("CoachSelection", modalFlex, true, true)
