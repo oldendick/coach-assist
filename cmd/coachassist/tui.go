@@ -272,10 +272,21 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 	previewText := tview.NewTextView().SetDynamicColors(true).SetWrap(true).SetRegions(true)
 	previewText.SetBorder(true).SetTitle(" Draft Preview ")
 
+	toInput := tview.NewInputField().SetLabel("To:   ").SetFieldWidth(0)
+	ccInput := tview.NewInputField().SetLabel("CC:   ").SetFieldWidth(0)
+	subjInput := tview.NewInputField().SetLabel("Subj: ").SetFieldWidth(0)
+
+	draftForm := tview.NewForm().
+		AddFormItem(toInput).
+		AddFormItem(ccInput).
+		AddFormItem(subjInput)
+	draftForm.SetBorder(true).SetTitle(" Draft Headers ")
+
 	createButton := tview.NewButton("Create Gmail Draft")
 	createButton.SetBorder(true)
 
 	rightPane := tview.NewFlex().SetDirection(tview.FlexRow)
+	rightPane.AddItem(draftForm, 9, 0, false)
 	rightPane.AddItem(previewText, 0, 1, false)
 	rightPane.AddItem(createButton, 3, 0, false)
 
@@ -290,7 +301,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			return nil
 		}
 		if event.Key() == tcell.KeyRight || event.Key() == tcell.KeyTab {
-			app.SetFocus(previewText)
+			app.SetFocus(draftForm)
 			return nil
 		}
 		if event.Key() == tcell.KeyBacktab {
@@ -300,6 +311,8 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		return event
 	})
 
+
+
 	previewText.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
 			detailBody.SwitchToPage("Menu")
@@ -307,7 +320,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			return nil
 		}
 		if event.Key() == tcell.KeyLeft || event.Key() == tcell.KeyBacktab {
-			app.SetFocus(templateList)
+			app.SetFocus(draftForm)
 			return nil
 		}
 		if event.Key() == tcell.KeyDown || event.Key() == tcell.KeyTab {
@@ -324,7 +337,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			return nil
 		}
 		if event.Key() == tcell.KeyUp || event.Key() == tcell.KeyBacktab {
-			app.SetFocus(previewText)
+			app.SetFocus(subjInput)
 			return nil
 		}
 		if event.Key() == tcell.KeyLeft || event.Key() == tcell.KeyTab {
@@ -783,8 +796,9 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				}
 
 				curDraft.from = coach.DraftedFrom
-				curDraft.to = toEmails
-				curDraft.cc = ccEmails
+				
+				toInput.SetText(toEmails)
+				ccInput.SetText(ccEmails)
 
 				subj := tmpl.Subject
 				if subj == "" {
@@ -793,7 +807,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				subj = strings.ReplaceAll(subj, "{name}", targetPlan.SubjectName)
 				subj = strings.ReplaceAll(subj, "{groupname}", targetPlan.SubjectName)
 				subj = strings.ReplaceAll(subj, "{firstname}", firstName)
-				curDraft.subj = subj
+				subjInput.SetText(subj)
 
 				curDraft.body = populatedBody + "\n\n"
 				if coach.Signature != "" {
@@ -801,25 +815,143 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				}
 
 				previewText.Clear()
-				fmt.Fprintf(previewText, "[yellow]From:[-] %s\n", curDraft.from)
-				fmt.Fprintf(previewText, "[yellow]To:  [-] %s\n", curDraft.to)
-				fmt.Fprintf(previewText, "[yellow]CC:  [-] %s\n", curDraft.cc)
-				fmt.Fprintf(previewText, "[yellow]Subj:[-] %s\n\n", curDraft.subj)
-				fmt.Fprintf(previewText, "--------------------------------------------------\n\n")
+				fmt.Fprintf(previewText, "[yellow]From:[-] %s\n\n", curDraft.from)
 				fmt.Fprintf(previewText, "%s", curDraft.body)
 				previewText.ScrollToBeginning()
 			}
 
+			showRecipientsPopup := func() {
+				editForm := tview.NewForm()
+				editForm.SetBorder(true).SetTitle(" Edit Recipients ")
+				
+				currentTos := strings.Split(toInput.GetText(), ",")
+				currentToMap := make(map[string]bool)
+				var extraTos []string
+				for _, t := range currentTos {
+					t = strings.TrimSpace(t)
+					if t == "" { continue }
+					currentToMap[t] = true
+					
+					found := false
+					for _, e := range targetPlan.SubjectEmails {
+						if e == t { found = true; break }
+					}
+					if !found {
+						extraTos = append(extraTos, t)
+					}
+				}
+
+				var toCheckboxes []*tview.Checkbox
+				for _, email := range targetPlan.SubjectEmails {
+					cb := tview.NewCheckbox().SetLabel("To: " + email).SetChecked(currentToMap[email])
+					toCheckboxes = append(toCheckboxes, cb)
+					editForm.AddFormItem(cb)
+				}
+				
+				additionalTo := tview.NewInputField().SetLabel("Extra To (csv):").SetFieldWidth(40).SetText(strings.Join(extraTos, ", "))
+				editForm.AddFormItem(additionalTo)
+				
+				ccInputPopup := tview.NewInputField().SetLabel("CC (csv):").SetFieldWidth(40).SetText(ccInput.GetText())
+				editForm.AddFormItem(ccInputPopup)
+
+				editForm.AddButton("Save", func() {
+					var finalTo []string
+					for i, cb := range toCheckboxes {
+						if cb.IsChecked() {
+							finalTo = append(finalTo, targetPlan.SubjectEmails[i])
+						}
+					}
+					if addTo := strings.TrimSpace(additionalTo.GetText()); addTo != "" {
+						finalTo = append(finalTo, addTo)
+					}
+					toInput.SetText(strings.Join(finalTo, ", "))
+					ccInput.SetText(ccInputPopup.GetText())
+					pages.RemovePage("EditRecipientsModal")
+					app.SetFocus(toInput)
+				})
+				editForm.AddButton("Cancel", func() {
+					pages.RemovePage("EditRecipientsModal")
+					app.SetFocus(toInput)
+				})
+
+				modalFlex := tview.NewFlex().
+					AddItem(nil, 0, 1, false).
+					AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+						AddItem(nil, 0, 1, false).
+						AddItem(editForm, len(targetPlan.SubjectEmails)+7, 1, true).
+						AddItem(nil, 0, 1, false), 70, 1, true).
+					AddItem(nil, 0, 1, false)
+
+				pages.AddPage("EditRecipientsModal", modalFlex, true, true)
+				app.SetFocus(editForm)
+			}
+
+			toInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+				if event.Key() == tcell.KeyEscape {
+					detailBody.SwitchToPage("Menu")
+					app.SetFocus(detailMenu)
+					return nil
+				}
+				if event.Key() == tcell.KeyEnter {
+					showRecipientsPopup()
+					return nil
+				}
+				if event.Key() == tcell.KeyBacktab {
+					app.SetFocus(templateList)
+					return nil
+				}
+				return event
+			})
+
+			ccInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+				if event.Key() == tcell.KeyEscape {
+					detailBody.SwitchToPage("Menu")
+					app.SetFocus(detailMenu)
+					return nil
+				}
+				if event.Key() == tcell.KeyEnter {
+					showRecipientsPopup()
+					return nil
+				}
+				return event
+			})
+			
+			subjInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+				if event.Key() == tcell.KeyEscape {
+					detailBody.SwitchToPage("Menu")
+					app.SetFocus(detailMenu)
+					return nil
+				}
+				if event.Key() == tcell.KeyDown || event.Key() == tcell.KeyEnter || event.Key() == tcell.KeyTab {
+					app.SetFocus(createButton)
+					return nil
+				}
+				return event
+			})
+
 			createButton.SetSelectedFunc(func() {
-				if strings.Contains(curDraft.to, "[red]") {
+				finalToCsv := strings.TrimSpace(toInput.GetText())
+				finalCcCsv := strings.TrimSpace(ccInput.GetText())
+				finalSubj := strings.TrimSpace(subjInput.GetText())
+
+				if finalToCsv == "" || strings.Contains(finalToCsv, "[red]") {
+					createButton.SetLabel(" [red]Error: No TO recipients ")
+					go func() {
+						time.Sleep(3 * time.Second)
+						app.QueueUpdateDraw(func() {
+							createButton.SetLabel("Create Gmail Draft")
+						})
+					}()
+					app.SetFocus(createButton)
 					return
 				}
 
 				createButton.SetLabel(" [yellow]Creating Draft... ")
 				createButton.SetBackgroundColor(tcell.ColorDarkCyan)
+				app.SetFocus(createButton)
 
 				go func() {
-					err := driveSvc.CreateDraft(curDraft.from, curDraft.to, curDraft.cc, curDraft.subj, curDraft.body)
+					err := driveSvc.CreateDraft(curDraft.from, finalToCsv, finalCcCsv, finalSubj, curDraft.body)
 					app.QueueUpdateDraw(func() {
 						if err != nil {
 							createButton.SetLabel(fmt.Sprintf(" [red]Error: %v ", err))
@@ -836,7 +968,6 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 								} else if selectedTemplate.Type == "follow_up" {
 									targetPlan.IsFollowUpSent = true
 								}
-								// Update appState and persist
 								appState.Assignments = assignments
 								state.SaveState("state.json", appState)
 								refreshTable()
@@ -952,9 +1083,12 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 	detailPage.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+			currentPage, _ := detailBody.GetFrontPage()
+			if currentPage == "Drafting" && event.Rune() == 'q' {
+				return event
+			}
 			// If we're on the Menu, go back to Dashboard.
 			// If we're on Text/Table, the specific captures above will handle it.
-			currentPage, _ := detailBody.GetFrontPage()
 			if currentPage == "Menu" {
 				pages.SwitchToPage("Dashboard")
 				app.SetFocus(table)
