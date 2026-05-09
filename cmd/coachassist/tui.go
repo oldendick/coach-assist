@@ -1169,18 +1169,15 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 								return
 							}
 
-							var targetAttachID string
-							var targetFilename string
+							var targetAttachments []drive.AttachmentInfo
 							for _, a := range attachments {
 								ext := strings.ToLower(filepath.Ext(a.Filename))
 								if ext == ".xlsx" || ext == ".xls" {
-									targetAttachID = a.ID
-									targetFilename = a.Filename
-									break
+									targetAttachments = append(targetAttachments, a)
 								}
 							}
 
-							if targetAttachID == "" {
+							if len(targetAttachments) == 0 {
 								app.QueueUpdateDraw(func() {
 									fmt.Fprintf(logView, "\n[red]No spreadsheet attachment found in this email.[-]\n\nPress q or ESC to return.")
 									logView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -1193,21 +1190,74 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 								return
 							}
 
-							logFn(fmt.Sprintf("Found spreadsheet: '%s'. Downloading...", targetFilename))
-							err = driveSvc.DownloadAttachment(selectedMsg.ID, targetAttachID, destFilename)
-							app.QueueUpdateDraw(func() {
-								if err != nil {
-									fmt.Fprintf(logView, "\n[red]Download failed: %v[-]\n\nPress q or ESC.", err)
-								} else {
-									fmt.Fprintf(logView, "\n[green]SUCCESS! Saved to artifacts/ as %s[-]\n\nPress q or ESC to close.", destFilename)
-									onComplete(targetFilename, selectedMsg.Subject)
-								}
-								logView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-									if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
-										closeLog()
+							downloadAttach := func(a drive.AttachmentInfo) {
+								logFn(fmt.Sprintf("Found spreadsheet: '%s'. Downloading...", a.Filename))
+								err = driveSvc.DownloadAttachment(selectedMsg.ID, a.ID, destFilename)
+								app.QueueUpdateDraw(func() {
+									if err != nil {
+										fmt.Fprintf(logView, "\n[red]Download failed: %v[-]\n\nPress q or ESC.", err)
+									} else {
+										fmt.Fprintf(logView, "\n[green]SUCCESS! Saved to artifacts/ as %s[-]\n\nPress q or ESC to close.", destFilename)
+										onComplete(a.Filename, selectedMsg.Subject)
 									}
-									return event
+									logView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+										if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+											closeLog()
+										}
+										return event
+									})
 								})
+							}
+
+							if len(targetAttachments) == 1 {
+								downloadAttach(targetAttachments[0])
+								return
+							}
+
+							// If multiple attachments, show a picker
+							app.QueueUpdateDraw(func() {
+								attachPicker := tview.NewList().ShowSecondaryText(false)
+								attachPicker.SetBorder(true).SetTitle(" Select Attachment to Sync ").SetTitleAlign(tview.AlignLeft)
+
+								for _, a := range targetAttachments {
+									attachPicker.AddItem(a.Filename, "", 0, nil)
+								}
+
+								attachPicker.AddItem("Cancel", "Return to main menu", 'q', func() {
+									pages.RemovePage("AttachPicker")
+									app.SetFocus(list)
+								})
+
+								attachPicker.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
+									if mainText == "Cancel" {
+										return
+									}
+									selectedAttach := targetAttachments[index]
+									pages.RemovePage("AttachPicker")
+
+									// Start download UI
+									logView, closeLog = showLogModal("Downloading Attachment")
+									logFn = func(msg string) {
+										app.QueueUpdateDraw(func() {
+											fmt.Fprintf(logView, "[-] %s\n", msg)
+										})
+									}
+									go func() {
+										downloadAttach(selectedAttach)
+									}()
+								})
+
+								modalAttach := tview.NewFlex().
+									AddItem(nil, 0, 1, false).
+									AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+										AddItem(nil, 0, 1, false).
+										AddItem(attachPicker, 15, 1, true).
+										AddItem(nil, 0, 1, false), 80, 1, true).
+									AddItem(nil, 0, 1, false)
+
+								closeLog() // Close the "Inspecting email" log
+								pages.AddPage("AttachPicker", modalAttach, true, true)
+								app.SetFocus(attachPicker)
 							})
 						}()
 					})
