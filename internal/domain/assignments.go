@@ -2,13 +2,24 @@ package domain
 
 import "strings"
 
-// coachMatches checks if a coach field contains the target coach name.
+// CoachMatches checks if a coach field contains the target coach name or any alias.
 // Handles slash-separated multi-coach fields like "Greg / Doug".
-func coachMatches(coachField, targetCoach string) bool {
+func CoachMatches(coachField, targetCoach string, aliases []string) bool {
 	parts := strings.Split(coachField, "/")
+	
+	// Create a list of all acceptable names
+	names := append([]string{strings.ToLower(targetCoach)}, "")
+	names = names[:1]
+	for _, alias := range aliases {
+		names = append(names, strings.ToLower(alias))
+	}
+
 	for _, p := range parts {
-		if strings.TrimSpace(p) == targetCoach {
-			return true
+		trimmed := strings.ToLower(strings.TrimSpace(p))
+		for _, name := range names {
+			if strings.Contains(trimmed, name) {
+				return true
+			}
 		}
 	}
 	return false
@@ -31,6 +42,7 @@ func isReservedSlot(groupName string) bool {
 //   - Reserved slots: Group1="(Greg)" — matched but flagged as reserved (no planning needed)
 func BuildAssignments(
 	coachName string,
+	aliases []string,
 	schedule []ScheduleRow,
 	makingDivesMap map[string]string,
 	studentEmails map[string]string,
@@ -44,19 +56,33 @@ func BuildAssignments(
 		var matchGroup string
 
 		// Check Coach1 column (exact or slash-separated)
-		if coachMatches(row.Coach1, coachName) {
+		if CoachMatches(row.Coach1, coachName, aliases) {
 			matchGroup = strings.TrimSpace(row.Group1)
 		}
 
 		// Check Coach2 column
-		if matchGroup == "" && coachMatches(row.Coach2, coachName) {
+		if matchGroup == "" && CoachMatches(row.Coach2, coachName, aliases) {
 			matchGroup = strings.TrimSpace(row.Group2)
+		}
+
+		// Helper to check if a string matches coach name or aliases
+		isTargetCoach := func(name string) bool {
+			lowerName := strings.ToLower(strings.TrimSpace(name))
+			if strings.Contains(lowerName, strings.ToLower(coachName)) {
+				return true
+			}
+			for _, alias := range aliases {
+				if strings.Contains(lowerName, strings.ToLower(alias)) {
+					return true
+				}
+			}
+			return false
 		}
 
 		// If the group is a reserved slot for someone else, skip it
 		if matchGroup != "" && isReservedSlot(matchGroup) {
 			inner := strings.TrimSpace(strings.Trim(matchGroup, "()"))
-			if inner != coachName {
+			if !isTargetCoach(inner) {
 				matchGroup = ""
 			}
 		}
@@ -67,7 +93,7 @@ func BuildAssignments(
 				trimmed := strings.TrimSpace(gField)
 				if isReservedSlot(trimmed) {
 					inner := strings.Trim(trimmed, "()")
-					if strings.TrimSpace(inner) == coachName {
+					if isTargetCoach(inner) {
 						matchGroup = trimmed
 						break
 					}

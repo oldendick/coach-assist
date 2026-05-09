@@ -80,6 +80,7 @@ func (t EmailTemplate) Validate() error {
 
 type CoachProfile struct {
 	Name           string                                  `json:"name"`
+	Aliases        []string                                `json:"aliases,omitempty"`
 	Signature      string                                  `json:"signature"`
 	GoogleAccount  string                                  `json:"google_account"`
 	GmailAccount   string                                  `json:"gmail_account"`

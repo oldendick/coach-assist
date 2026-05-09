@@ -86,6 +86,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 		assignments = domain.BuildAssignments(
 			cfg.Coaches[cfg.ActiveCoach].Name,
+			cfg.Coaches[cfg.ActiveCoach].Aliases,
 			schedRows,
 			groupMap,
 			emailMap,
@@ -1009,8 +1010,9 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			row := rows[r]
 			
 			highlightRow := false
-			if title == "Who Makes Dives" && r > 0 && len(row) > 1 {
-				if strings.Contains(strings.ToLower(row[1]), strings.ToLower(coachName)) {
+			if title == "Who Makes Dives" && r > 0 {
+				aliases := cfg.Coaches[cfg.ActiveCoach].Aliases
+				if len(row) > 1 && domain.CoachMatches(row[1], coachName, aliases) {
 					highlightRow = true
 				}
 			}
@@ -1726,6 +1728,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 	list.AddItem("View Current Coach's Schedule", "", 'v', func() {
 		coachName := cfg.Coaches[cfg.ActiveCoach].Name
+		aliases := cfg.Coaches[cfg.ActiveCoach].Aliases
 
 		coachScheduleTable.SetTitle(fmt.Sprintf(" Schedule for Coach: %s (ESC/q to back) ", coachName))
 		coachScheduleTable.Clear()
@@ -1738,8 +1741,8 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 		rowIdx := 1
 		for _, sched := range allScheduleRows {
-			matchC1 := strings.Contains(strings.ToLower(sched.Coach1), strings.ToLower(coachName))
-			matchC2 := strings.Contains(strings.ToLower(sched.Coach2), strings.ToLower(coachName))
+			matchC1 := domain.CoachMatches(sched.Coach1, coachName, aliases)
+			matchC2 := domain.CoachMatches(sched.Coach2, coachName, aliases)
 
 			if matchC1 || matchC2 {
 				coachScheduleTable.SetCell(rowIdx, 0, tview.NewTableCell(sched.Date).SetReference("data"))

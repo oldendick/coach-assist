@@ -5,6 +5,7 @@
   "coaches": {
     "Coach1": {
       "name": "Coach1",
+      "aliases": ["Coach1Alias"],
       "signature": "Thanks,\nCoach1\ncoach1@example.com\n555-555-5555",
       "google_account": "coach1@example.com",
       "gmail_account": "coach1@example.com",
