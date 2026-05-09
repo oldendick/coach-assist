@@ -333,7 +333,9 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		return event
 	})
 
+	detailLinkBox := tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
 	detailPage.AddItem(detailBody, 0, 1, true)
+	detailPage.AddItem(detailLinkBox, 4, 0, false)
 
 	showConfirmModal := func(text string, onConfirm func(), cancelFocus tview.Primitive) {
 		confirmModal := tview.NewModal().
@@ -372,6 +374,19 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			detailText.SetText(fmt.Sprintf("\n\n[red]Internal Error: Could not find assignment '%s' in memory.[-]\n\nPress ESC or 'q' to return.", displayName))
 			app.SetFocus(detailPage)
 			return
+		}
+
+		if targetPlan.DriveFolderID != "" || targetPlan.DriveFileID != "" {
+			var links []string
+			if targetPlan.DriveFolderID != "" {
+				links = append(links, fmt.Sprintf("[green]Folder:[-] https://drive.google.com/drive/folders/%s", targetPlan.DriveFolderID))
+			}
+			if targetPlan.DriveFileID != "" {
+				links = append(links, fmt.Sprintf("[green]Worksheet:[-] https://docs.google.com/spreadsheets/d/%s/edit", targetPlan.DriveFileID))
+			}
+			detailLinkBox.SetText("\n" + strings.Join(links, "\n"))
+		} else {
+			detailLinkBox.SetText("\n[darkgray](No Workspace Created Yet)[-]")
 		}
 
 		// 2. Prepare the Assignment Sub-Menu
@@ -548,7 +563,10 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					targetPlan.HasTrainingPlan = true
 					targetPlan.IsWorkspaceCreated = true
 					targetPlan.DriveFileID = newFileID
+					targetPlan.DriveFolderID = folderID
 					folderStatusChecked = true
+
+					detailLinkBox.SetText(fmt.Sprintf("\n[green]Folder:[-] https://drive.google.com/drive/folders/%s\n[green]Worksheet:[-] https://docs.google.com/spreadsheets/d/%s/edit", folderID, newFileID))
 
 					// Update the menu label immediately
 					detailMenu.SetItemText(0, "[green][✅] Create Drive Workspace[-] (Already Exists)", "Initialize folder and template on Google Drive")
@@ -1341,6 +1359,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				for _, item := range allItems {
 					if domain.FolderMatchesAssignment(item.Name, assignments[i].SubjectName) {
 						assignments[i].IsWorkspaceCreated = true
+						assignments[i].DriveFolderID = item.ID
 						logFn(fmt.Sprintf("  \u2705 '%s' matched folder '%s'", assignments[i].SubjectName, item.Name))
 						matched++
 
