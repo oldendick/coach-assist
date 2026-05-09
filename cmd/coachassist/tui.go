@@ -43,6 +43,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 	appState := state.LoadState("state.json")
 	var assignments []domain.FlightPlan
 	var allScheduleRows []domain.ScheduleRow
+	var allStudentEmails map[string]string
 	folderStatusChecked := false
 	driveNameCache := make(map[string]string)
 
@@ -92,6 +93,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			emailMap,
 		)
 		allScheduleRows = schedRows
+		allStudentEmails = emailMap
 
 		// Merge persistent state
 		foundCached := false
@@ -311,8 +313,6 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		return event
 	})
 
-
-
 	previewText.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
 			detailBody.SwitchToPage("Menu")
@@ -440,160 +440,160 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				detailText.SetText("\n\n[yellow][-] Step 1: Evaluating Drive Hierarchy...[-]\n\n")
 
 				go func() {
-				// 1. Determine Parents & Templates
-				parentID := cfg.Drive.WorkshopParentFolderID
-				templateID := cfg.Drive.Templates.IndividualSkillsWorksheetID
-				if targetPlan.IsGroup {
-					parentID = cfg.Drive.TeamsFolderID
-					templateID = cfg.Drive.Templates.TeamTrainingPlanID
-				}
-
-				// 2. Search for existing folder
-				app.QueueUpdateDraw(func() {
-					detailText.SetText(fmt.Sprintf("\n\n[yellow][-] Step 2: Searching for folder '%s'...[-]\n\n", targetPlan.SubjectName))
-				})
-
-				query := fmt.Sprintf("name = '%s' and '%s' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false", targetPlan.SubjectName, parentID)
-				matches, err := driveSvc.SearchFiles(query)
-
-				var folderID string
-				if err == nil && len(matches) > 0 {
-					folderID = matches[0].ID
-					app.QueueUpdateDraw(func() {
-						detailText.SetText(fmt.Sprintf("\n\n[yellow][-] Step 2: Existing folder found (ID: %s). Skipping creation.[-]\n\n", folderID))
-					})
-				} else {
-					app.QueueUpdateDraw(func() {
-						detailText.SetText("\n\n[yellow][-] Step 2: Folder not found. Creating new workspace...[-]\n\n")
-					})
-					folderID, err = driveSvc.CreateFolder(parentID, targetPlan.SubjectName)
-				}
-
-				if err != nil || folderID == "" {
-					app.QueueUpdateDraw(func() {
-						detailText.SetText(fmt.Sprintf("\n\n[red]Failed to resolve workspace folder: %v[-]\n\nPress ESC or 'q' to return.", err))
-					})
-					return
-				}
-
-				// 3. Copy Template
-				app.QueueUpdateDraw(func() {
-					detailText.SetText("\n\n[yellow][-] Step 3: Cloning Template into workspace...[-]\n\n")
-				})
-				newName := fmt.Sprintf("%s - Training Plan", targetPlan.SubjectName)
-				newFileID, err := driveSvc.CopyFile(templateID, folderID, newName)
-				if err != nil {
-					app.QueueUpdateDraw(func() {
-						detailText.SetText(fmt.Sprintf("\n\n[red]Failed to clone template: %v[-]\n\nPress ESC or 'q' to return.", err))
-					})
-					return
-				}
-
-				// 4. Set Permissions
-				app.QueueUpdateDraw(func() {
-					detailText.SetText("\n\n[yellow][-] Step 4: Applying 'Anyone with Link' Reader permissions...[-]\n\n")
-				})
-				err = driveSvc.CreatePermission(newFileID, "reader", "anyone")
-				if err != nil {
-					app.QueueUpdateDraw(func() {
-						detailText.SetText(fmt.Sprintf("\n\n[red]Failed to set permissions: %v[-]\n\nPress ESC or 'q' to return.", err))
-					})
-					return
-				}
-
-				// 5. Personalize Template
-				app.QueueUpdateDraw(func() {
-					detailText.SetText("\n\n[yellow][-] Step 5: Dynamically mapping worksheet grid...[-]\n\n")
-				})
-
-				meta, err := driveSvc.GetSpreadsheetMetadata(newFileID)
-				if err == nil {
-					var sheetName string
-					isTeamSheet := false
-					for _, s := range meta.Sheets {
-						title := strings.ToLower(s.Properties.Title)
-						if !targetPlan.IsGroup && (strings.Contains(title, "plan") || strings.Contains(title, "skills")) {
-							sheetName = s.Properties.Title
-							break
-						}
-						if targetPlan.IsGroup && strings.Contains(title, "everyone") {
-							sheetName = s.Properties.Title
-							isTeamSheet = true
-							break
-						}
+					// 1. Determine Parents & Templates
+					parentID := cfg.Drive.WorkshopParentFolderID
+					templateID := cfg.Drive.Templates.IndividualSkillsWorksheetID
+					if targetPlan.IsGroup {
+						parentID = cfg.Drive.TeamsFolderID
+						templateID = cfg.Drive.Templates.TeamTrainingPlanID
 					}
 
-					if sheetName == "" && len(meta.Sheets) > 0 {
-						sheetName = meta.Sheets[0].Properties.Title
+					// 2. Search for existing folder
+					app.QueueUpdateDraw(func() {
+						detailText.SetText(fmt.Sprintf("\n\n[yellow][-] Step 2: Searching for folder '%s'...[-]\n\n", targetPlan.SubjectName))
+					})
+
+					query := fmt.Sprintf("name = '%s' and '%s' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false", targetPlan.SubjectName, parentID)
+					matches, err := driveSvc.SearchFiles(query)
+
+					var folderID string
+					if err == nil && len(matches) > 0 {
+						folderID = matches[0].ID
+						app.QueueUpdateDraw(func() {
+							detailText.SetText(fmt.Sprintf("\n\n[yellow][-] Step 2: Existing folder found (ID: %s). Skipping creation.[-]\n\n", folderID))
+						})
+					} else {
+						app.QueueUpdateDraw(func() {
+							detailText.SetText("\n\n[yellow][-] Step 2: Folder not found. Creating new workspace...[-]\n\n")
+						})
+						folderID, err = driveSvc.CreateFolder(parentID, targetPlan.SubjectName)
 					}
 
-					if sheetName != "" {
-						grid, err := driveSvc.GetSheetValues(newFileID, fmt.Sprintf("%s!A1:Z50", sheetName))
-						if err == nil {
-							var merges []drive.SheetMerge
-							for _, s := range meta.Sheets {
-								if s.Properties.Title == sheetName {
-									merges = s.Merges
-									break
-								}
-							}
+					if err != nil || folderID == "" {
+						app.QueueUpdateDraw(func() {
+							detailText.SetText(fmt.Sprintf("\n\n[red]Failed to resolve workspace folder: %v[-]\n\nPress ESC or 'q' to return.", err))
+						})
+						return
+					}
 
-							displayDate := targetPlan.ArrivalDay
-							if displayDate == "" {
-								displayDate = time.Now().Format("2006-01-02")
-							}
+					// 3. Copy Template
+					app.QueueUpdateDraw(func() {
+						detailText.SetText("\n\n[yellow][-] Step 3: Cloning Template into workspace...[-]\n\n")
+					})
+					newName := fmt.Sprintf("%s - Training Plan", targetPlan.SubjectName)
+					newFileID, err := driveSvc.CopyFile(templateID, folderID, newName)
+					if err != nil {
+						app.QueueUpdateDraw(func() {
+							detailText.SetText(fmt.Sprintf("\n\n[red]Failed to clone template: %v[-]\n\nPress ESC or 'q' to return.", err))
+						})
+						return
+					}
 
-							var updates []drive.SheetUpdate
-							if !isTeamSheet {
-								for rIdx, row := range grid {
-									for cIdx, cell := range row {
-										cellStr := strings.ToLower(strings.TrimSpace(fmt.Sprint(cell)))
-										var targetColIdx int
-										if strings.Contains(cellStr, "name:") {
-											targetColIdx = getTargetCol(merges, rIdx, cIdx)
-											updates = append(updates, drive.SheetUpdate{Range: fmt.Sprintf("%s!%s%d", sheetName, colNumToLetter(targetColIdx+1), rIdx+1), Values: [][]interface{}{{targetPlan.SubjectName}}})
-										} else if strings.Contains(cellStr, "date:") {
-											targetColIdx = getTargetCol(merges, rIdx, cIdx)
-											updates = append(updates, drive.SheetUpdate{Range: fmt.Sprintf("%s!%s%d", sheetName, colNumToLetter(targetColIdx+1), rIdx+1), Values: [][]interface{}{{displayDate}}})
-										} else if strings.Contains(cellStr, "coach:") {
-											targetColIdx = getTargetCol(merges, rIdx, cIdx)
-											updates = append(updates, drive.SheetUpdate{Range: fmt.Sprintf("%s!%s%d", sheetName, colNumToLetter(targetColIdx+1), rIdx+1), Values: [][]interface{}{{cfg.ActiveCoach}}})
-										}
+					// 4. Set Permissions
+					app.QueueUpdateDraw(func() {
+						detailText.SetText("\n\n[yellow][-] Step 4: Applying 'Anyone with Link' Reader permissions...[-]\n\n")
+					})
+					err = driveSvc.CreatePermission(newFileID, "reader", "anyone")
+					if err != nil {
+						app.QueueUpdateDraw(func() {
+							detailText.SetText(fmt.Sprintf("\n\n[red]Failed to set permissions: %v[-]\n\nPress ESC or 'q' to return.", err))
+						})
+						return
+					}
+
+					// 5. Personalize Template
+					app.QueueUpdateDraw(func() {
+						detailText.SetText("\n\n[yellow][-] Step 5: Dynamically mapping worksheet grid...[-]\n\n")
+					})
+
+					meta, err := driveSvc.GetSpreadsheetMetadata(newFileID)
+					if err == nil {
+						var sheetName string
+						isTeamSheet := false
+						for _, s := range meta.Sheets {
+							title := strings.ToLower(s.Properties.Title)
+							if !targetPlan.IsGroup && (strings.Contains(title, "plan") || strings.Contains(title, "skills")) {
+								sheetName = s.Properties.Title
+								break
+							}
+							if targetPlan.IsGroup && strings.Contains(title, "everyone") {
+								sheetName = s.Properties.Title
+								isTeamSheet = true
+								break
+							}
+						}
+
+						if sheetName == "" && len(meta.Sheets) > 0 {
+							sheetName = meta.Sheets[0].Properties.Title
+						}
+
+						if sheetName != "" {
+							grid, err := driveSvc.GetSheetValues(newFileID, fmt.Sprintf("%s!A1:Z50", sheetName))
+							if err == nil {
+								var merges []drive.SheetMerge
+								for _, s := range meta.Sheets {
+									if s.Properties.Title == sheetName {
+										merges = s.Merges
+										break
 									}
 								}
-							} else {
-								updates = append(updates, drive.SheetUpdate{Range: fmt.Sprintf("%s!A3", sheetName), Values: [][]interface{}{{displayDate}}})
-							}
 
-							if len(updates) > 0 {
-								driveSvc.UpdateSheetValues(newFileID, updates)
+								displayDate := targetPlan.ArrivalDay
+								if displayDate == "" {
+									displayDate = time.Now().Format("2006-01-02")
+								}
+
+								var updates []drive.SheetUpdate
+								if !isTeamSheet {
+									for rIdx, row := range grid {
+										for cIdx, cell := range row {
+											cellStr := strings.ToLower(strings.TrimSpace(fmt.Sprint(cell)))
+											var targetColIdx int
+											if strings.Contains(cellStr, "name:") {
+												targetColIdx = getTargetCol(merges, rIdx, cIdx)
+												updates = append(updates, drive.SheetUpdate{Range: fmt.Sprintf("%s!%s%d", sheetName, colNumToLetter(targetColIdx+1), rIdx+1), Values: [][]interface{}{{targetPlan.SubjectName}}})
+											} else if strings.Contains(cellStr, "date:") {
+												targetColIdx = getTargetCol(merges, rIdx, cIdx)
+												updates = append(updates, drive.SheetUpdate{Range: fmt.Sprintf("%s!%s%d", sheetName, colNumToLetter(targetColIdx+1), rIdx+1), Values: [][]interface{}{{displayDate}}})
+											} else if strings.Contains(cellStr, "coach:") {
+												targetColIdx = getTargetCol(merges, rIdx, cIdx)
+												updates = append(updates, drive.SheetUpdate{Range: fmt.Sprintf("%s!%s%d", sheetName, colNumToLetter(targetColIdx+1), rIdx+1), Values: [][]interface{}{{cfg.ActiveCoach}}})
+											}
+										}
+									}
+								} else {
+									updates = append(updates, drive.SheetUpdate{Range: fmt.Sprintf("%s!A3", sheetName), Values: [][]interface{}{{displayDate}}})
+								}
+
+								if len(updates) > 0 {
+									driveSvc.UpdateSheetValues(newFileID, updates)
+								}
 							}
 						}
 					}
-				}
 
-				app.QueueUpdateDraw(func() {
-					// Update local memory state so "View" and "Table" work immediately
-					targetPlan.HasTrainingPlan = true
-					targetPlan.IsWorkspaceCreated = true
-					targetPlan.DriveFileID = newFileID
-					targetPlan.DriveFolderID = folderID
-					folderStatusChecked = true
+					app.QueueUpdateDraw(func() {
+						// Update local memory state so "View" and "Table" work immediately
+						targetPlan.HasTrainingPlan = true
+						targetPlan.IsWorkspaceCreated = true
+						targetPlan.DriveFileID = newFileID
+						targetPlan.DriveFolderID = folderID
+						folderStatusChecked = true
 
-					detailLinkBox.SetText(fmt.Sprintf("\n[green]Folder:[-] https://drive.google.com/drive/folders/%s\n[green]Worksheet:[-] https://docs.google.com/spreadsheets/d/%s/edit", folderID, newFileID))
+						detailLinkBox.SetText(fmt.Sprintf("\n[green]Folder:[-] https://drive.google.com/drive/folders/%s\n[green]Worksheet:[-] https://docs.google.com/spreadsheets/d/%s/edit", folderID, newFileID))
 
-					// Update the menu label immediately
-					detailMenu.SetItemText(0, "[green][✅] Create Drive Workspace[-] (Already Exists)", "Initialize folder and template on Google Drive")
+						// Update the menu label immediately
+						detailMenu.SetItemText(0, "[green][✅] Create Drive Workspace[-] (Already Exists)", "Initialize folder and template on Google Drive")
 
-					// Update the dashboard table in the background
-					refreshTable()
+						// Update the dashboard table in the background
+						refreshTable()
 
-					successMsg := fmt.Sprintf("\n\n[green]Workspace Successfully Created![-]\n\n[white]Folder Created:[-] %s\n[white]Plan Created:[-] %s\n\nLink: https://docs.google.com/spreadsheets/d/%s/edit\n\nPress ESC or 'q' to return to options.", targetPlan.SubjectName, newName, newFileID)
-					detailText.SetText(successMsg)
-				})
-			}()
-		}, detailMenu)
-	})
+						successMsg := fmt.Sprintf("\n\n[green]Workspace Successfully Created![-]\n\n[white]Folder Created:[-] %s\n[white]Plan Created:[-] %s\n\nLink: https://docs.google.com/spreadsheets/d/%s/edit\n\nPress ESC or 'q' to return to options.", targetPlan.SubjectName, newName, newFileID)
+						detailText.SetText(successMsg)
+					})
+				}()
+			}, detailMenu)
+		})
 
 		detailMenu.AddItem("", "", 0, nil) // Spacer at index 1
 
@@ -796,7 +796,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				}
 
 				curDraft.from = coach.DraftedFrom
-				
+
 				toInput.SetText(toEmails)
 				ccInput.SetText(ccEmails)
 
@@ -820,70 +820,156 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				previewText.ScrollToBeginning()
 			}
 
-			showRecipientsPopup := func() {
-				editForm := tview.NewForm()
-				editForm.SetBorder(true).SetTitle(" Edit Recipients ")
-				
-				currentTos := strings.Split(toInput.GetText(), ",")
-				currentToMap := make(map[string]bool)
-				var extraTos []string
-				for _, t := range currentTos {
+			showRecipientsPopup := func(targetInput *tview.InputField, isCC bool) {
+				rosterList := tview.NewList().ShowSecondaryText(false)
+
+				sourceMap := allStudentEmails
+				title := " Roster Emails (Space: toggle, Enter/Esc: save) "
+				if isCC {
+					sourceMap = make(map[string]string)
+					for _, c := range cfg.Coaches {
+						email := c.GmailAccount
+						if email == "" {
+							email = c.GoogleAccount
+						}
+						sourceMap[c.Name] = email
+					}
+					sourceMap["Team"] = "four@rhythmskydiving.com"
+					title = " Coach Emails (Space: toggle, Enter/Esc: save) "
+				}
+
+				rosterList.SetBorder(true).SetTitle(title)
+
+				currentCsv := targetInput.GetText()
+				currentTokens := strings.Split(currentCsv, ",")
+				currentMap := make(map[string]bool)
+
+				var extraEmails []string
+				for _, t := range currentTokens {
 					t = strings.TrimSpace(t)
-					if t == "" { continue }
-					currentToMap[t] = true
-					
+					if t == "" {
+						continue
+					}
+					currentMap[t] = true
+
 					found := false
-					for _, e := range targetPlan.SubjectEmails {
-						if e == t { found = true; break }
-					}
-					if !found {
-						extraTos = append(extraTos, t)
-					}
-				}
-
-				var toCheckboxes []*tview.Checkbox
-				for _, email := range targetPlan.SubjectEmails {
-					cb := tview.NewCheckbox().SetLabel("To: " + email).SetChecked(currentToMap[email])
-					toCheckboxes = append(toCheckboxes, cb)
-					editForm.AddFormItem(cb)
-				}
-				
-				additionalTo := tview.NewInputField().SetLabel("Extra To (csv):").SetFieldWidth(40).SetText(strings.Join(extraTos, ", "))
-				editForm.AddFormItem(additionalTo)
-				
-				ccInputPopup := tview.NewInputField().SetLabel("CC (csv):").SetFieldWidth(40).SetText(ccInput.GetText())
-				editForm.AddFormItem(ccInputPopup)
-
-				editForm.AddButton("Save", func() {
-					var finalTo []string
-					for i, cb := range toCheckboxes {
-						if cb.IsChecked() {
-							finalTo = append(finalTo, targetPlan.SubjectEmails[i])
+					for _, email := range sourceMap {
+						if email == t {
+							found = true
+							break
 						}
 					}
-					if addTo := strings.TrimSpace(additionalTo.GetText()); addTo != "" {
-						finalTo = append(finalTo, addTo)
+					if !found {
+						extraEmails = append(extraEmails, t)
 					}
-					toInput.SetText(strings.Join(finalTo, ", "))
-					ccInput.SetText(ccInputPopup.GetText())
+				}
+
+				var rosterKeys []string
+				hasTeam := false
+				for name := range sourceMap {
+					if name == "Team" {
+						hasTeam = true
+					} else {
+						rosterKeys = append(rosterKeys, name)
+					}
+				}
+				sort.Strings(rosterKeys)
+				if hasTeam {
+					rosterKeys = append([]string{"Team"}, rosterKeys...)
+				}
+
+				updateListLabels := func() {
+					rosterList.Clear()
+					for _, name := range rosterKeys {
+						email := sourceMap[name]
+						label := "[ ] "
+						if currentMap[email] {
+							label = "[✅] "
+						}
+						label += fmt.Sprintf("%s (%s)", name, email)
+						rosterList.AddItem(label, "", 0, nil)
+					}
+				}
+
+				updateListLabels()
+
+				saveFunc := func() {
+					var finalEmails []string
+					for _, email := range extraEmails {
+						finalEmails = append(finalEmails, email)
+					}
+					for _, name := range rosterKeys {
+						email := sourceMap[name]
+						if currentMap[email] {
+							finalEmails = append(finalEmails, email)
+						}
+					}
+					targetInput.SetText(strings.Join(finalEmails, ", "))
 					pages.RemovePage("EditRecipientsModal")
-					app.SetFocus(toInput)
+					app.SetFocus(targetInput)
+				}
+
+				cancelFunc := func() {
+					pages.RemovePage("EditRecipientsModal")
+					app.SetFocus(targetInput)
+				}
+
+				buttonForm := tview.NewForm().
+					AddButton("Save", saveFunc).
+					AddButton("Cancel", cancelFunc)
+				buttonForm.SetButtonsAlign(tview.AlignCenter)
+				buttonForm.SetBackgroundColor(tcell.ColorDefault)
+
+				buttonForm.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+					if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+						cancelFunc()
+						return nil
+					}
+					if event.Key() == tcell.KeyBacktab || event.Key() == tcell.KeyUp {
+						app.SetFocus(rosterList)
+						return nil
+					}
+					return event
 				})
-				editForm.AddButton("Cancel", func() {
-					pages.RemovePage("EditRecipientsModal")
-					app.SetFocus(toInput)
+
+				rosterList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+					if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+						cancelFunc()
+						return nil
+					}
+					if event.Key() == tcell.KeyEnter {
+						saveFunc()
+						return nil
+					}
+					if event.Key() == tcell.KeyTab {
+						app.SetFocus(buttonForm)
+						return nil
+					}
+					if event.Rune() == ' ' {
+						idx := rosterList.GetCurrentItem()
+						if len(rosterKeys) > 0 && idx >= 0 && idx < len(rosterKeys) {
+							name := rosterKeys[idx]
+							email := sourceMap[name]
+							currentMap[email] = !currentMap[email]
+							updateListLabels()
+							rosterList.SetCurrentItem(idx)
+						}
+						return nil
+					}
+					return event
 				})
 
 				modalFlex := tview.NewFlex().
 					AddItem(nil, 0, 1, false).
 					AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 						AddItem(nil, 0, 1, false).
-						AddItem(editForm, len(targetPlan.SubjectEmails)+7, 1, true).
-						AddItem(nil, 0, 1, false), 70, 1, true).
+						AddItem(rosterList, 20, 1, true).
+						AddItem(buttonForm, 3, 0, false).
+						AddItem(nil, 0, 1, false), 80, 1, true).
 					AddItem(nil, 0, 1, false)
 
 				pages.AddPage("EditRecipientsModal", modalFlex, true, true)
-				app.SetFocus(editForm)
+				app.SetFocus(rosterList)
 			}
 
 			toInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -893,7 +979,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					return nil
 				}
 				if event.Key() == tcell.KeyEnter {
-					showRecipientsPopup()
+					showRecipientsPopup(toInput, false)
 					return nil
 				}
 				if event.Key() == tcell.KeyBacktab {
@@ -910,12 +996,12 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					return nil
 				}
 				if event.Key() == tcell.KeyEnter {
-					showRecipientsPopup()
+					showRecipientsPopup(ccInput, true)
 					return nil
 				}
 				return event
 			})
-			
+
 			subjInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 				if event.Key() == tcell.KeyEscape {
 					detailBody.SwitchToPage("Menu")
@@ -1142,7 +1228,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 		for r := 0; r < renderRows; r++ {
 			row := rows[r]
-			
+
 			highlightRow := false
 			if title == "Who Makes Dives" && r > 0 {
 				aliases := cfg.Coaches[cfg.ActiveCoach].Aliases
@@ -1641,7 +1727,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				var updateLabels func()
 				updateLabels = func() {
 					toggleList.Clear()
-					
+
 					wsLabel := "[❌] Workspace Created"
 					if targetPlan.IsWorkspaceCreated {
 						wsLabel = "[✅] Workspace Created"
@@ -1715,7 +1801,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 				// Initial labels
 				updateLabels()
-				
+
 				// Handle manual selection clicks to re-render without closing
 				toggleList.SetSelectedFunc(func(idx int, main string, secondary string, shortcut rune) {
 					if main == "Done" {
