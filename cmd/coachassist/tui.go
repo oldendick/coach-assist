@@ -128,7 +128,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		SetTitleAlign(tview.AlignLeft)
 
 	table := tview.NewTable().SetBorders(true).SetSelectable(true, false).SetFixed(1, 0)
-	table.SetBorder(true).SetTitle(" Pending Assignments (r: refresh folders, q/ESC: back, Enter: view) ").SetTitleAlign(tview.AlignLeft)
+	table.SetBorder(true).SetTitle(" Pending Assignments (r: refresh, Space: toggle, q/ESC: back, Enter: view) ").SetTitleAlign(tview.AlignLeft)
 	table.SetSelectedStyle(tcell.StyleDefault.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite))
 
 	masterScheduleTable := tview.NewTable().SetBorders(true).SetSelectable(true, true).SetFixed(1, 0)
@@ -1484,6 +1484,132 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 						return nil
 					}
 				}
+			}
+		}
+		if event.Key() == tcell.KeyRune && event.Rune() == ' ' {
+			row, _ := table.GetSelection()
+			displayName := strings.TrimSpace(table.GetCell(row, 0).Text)
+
+			var targetPlan *domain.FlightPlan
+			for i := range assignments {
+				if assignments[i].SubjectName == displayName {
+					targetPlan = &assignments[i]
+					break
+				}
+			}
+
+			if targetPlan != nil {
+				toggleList := tview.NewList().ShowSecondaryText(false)
+				toggleList.SetBorder(true).SetTitle(fmt.Sprintf(" Toggle Tasks: %s ", targetPlan.SubjectName))
+
+				var updateLabels func()
+				updateLabels = func() {
+					toggleList.Clear()
+					
+					wsLabel := "[❌] Workspace Created"
+					if targetPlan.IsWorkspaceCreated {
+						wsLabel = "[✅] Workspace Created"
+					}
+					toggleList.AddItem(wsLabel, "", 'w', func() {
+						targetPlan.IsWorkspaceCreated = !targetPlan.IsWorkspaceCreated
+						refreshTable()
+						appState.Assignments = assignments
+						state.SaveState("state.json", appState)
+						updateLabels()
+						toggleList.SetCurrentItem(0)
+					})
+
+					planLabel := "[❌] Training Plan Ready"
+					if targetPlan.HasTrainingPlan {
+						planLabel = "[✅] Training Plan Ready"
+					}
+					toggleList.AddItem(planLabel, "", 'p', func() {
+						targetPlan.HasTrainingPlan = !targetPlan.HasTrainingPlan
+						refreshTable()
+						appState.Assignments = assignments
+						state.SaveState("state.json", appState)
+						updateLabels()
+						toggleList.SetCurrentItem(1)
+					})
+
+					outreachLabel := "[❌] Outreach Sent"
+					if targetPlan.IsDiscoveryDrafted {
+						outreachLabel = "[✅] Outreach Sent"
+					}
+					toggleList.AddItem(outreachLabel, "", 'o', func() {
+						targetPlan.IsDiscoveryDrafted = !targetPlan.IsDiscoveryDrafted
+						refreshTable()
+						appState.Assignments = assignments
+						state.SaveState("state.json", appState)
+						updateLabels()
+						toggleList.SetCurrentItem(2)
+					})
+
+					finalLabel := "[❌] Plan Sent"
+					if targetPlan.IsFinalPlanDrafted {
+						finalLabel = "[✅] Plan Sent"
+					}
+					toggleList.AddItem(finalLabel, "", 's', func() {
+						targetPlan.IsFinalPlanDrafted = !targetPlan.IsFinalPlanDrafted
+						refreshTable()
+						appState.Assignments = assignments
+						state.SaveState("state.json", appState)
+						updateLabels()
+						toggleList.SetCurrentItem(3)
+					})
+
+					followLabel := "[❌] Follow-up Sent"
+					if targetPlan.IsFollowUpSent {
+						followLabel = "[✅] Follow-up Sent"
+					}
+					toggleList.AddItem(followLabel, "", 'f', func() {
+						targetPlan.IsFollowUpSent = !targetPlan.IsFollowUpSent
+						refreshTable()
+						appState.Assignments = assignments
+						state.SaveState("state.json", appState)
+						updateLabels()
+						toggleList.SetCurrentItem(4)
+					})
+
+					toggleList.AddItem("Done", "Return to assignments", 'q', func() {
+						pages.RemovePage("ToggleModal")
+						app.SetFocus(table)
+					})
+				}
+
+				// Initial labels
+				updateLabels()
+				
+				// Handle manual selection clicks to re-render without closing
+				toggleList.SetSelectedFunc(func(idx int, main string, secondary string, shortcut rune) {
+					if main == "Done" {
+						pages.RemovePage("ToggleModal")
+						app.SetFocus(table)
+						return
+					}
+				})
+
+				// We can intercept input to close the modal
+				toggleList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+					if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+						pages.RemovePage("ToggleModal")
+						app.SetFocus(table)
+						return nil
+					}
+					return event
+				})
+
+				modalFlex := tview.NewFlex().
+					AddItem(nil, 0, 1, false).
+					AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+						AddItem(nil, 0, 1, false).
+						AddItem(toggleList, 8, 1, true).
+						AddItem(nil, 0, 1, false), 40, 1, true).
+					AddItem(nil, 0, 1, false)
+
+				pages.AddPage("ToggleModal", modalFlex, true, true)
+				app.SetFocus(toggleList)
+				return nil
 			}
 		}
 		return event
