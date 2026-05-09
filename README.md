@@ -30,6 +30,16 @@ If you download the `.zip` manually via a browser, macOS will label the app as "
 
 ---
 
+## Key Features
+
+*   **Interactive Drafting**: Edit email bodies inline before creation using the built-in `TextArea` editor.
+*   **Automated Gmail Drafts**: Create drafts directly in your Gmail account with one click—no copy-pasting required.
+*   **Smart Recipient Management**: Easily toggle TO and CC recipients from the student roster or coach list via interactive popups.
+*   **Coach Nicknames**: Supports aliases in the schedule (e.g., "Loufek" matches "Fancy") via `config.json`.
+*   **Robust Testing**: Full suite of unit tests for assignment logic, template population, and Excel ingestion, plus a mockable Drive service for stable development.
+
+---
+
 ## Windows Setup (Using Release) (Manual)
 
 1. Download and extract the `.zip` file for your platform (e.g., `coach-assist-v1.0.0-windows-amd64.zip`).

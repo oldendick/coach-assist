@@ -10,7 +10,7 @@ To ensure the tool is accessible to all coaches without creating "tech support h
 ## Architecture & Principles
 * **Language:** Go (Backend/API and Phase I TUI).
 * **API-First Design:** Core business logic (ingestion, Google Workspace automation, email drafting) will be exposed via a clean, internal API boundary. Both the Phase I TUI and Phase II Web App will consume these unified core services.
-* **Testing:** High priority on writing robust tests early and often to ensure long-term maintainability and prevent regressions.
+* **Testing:** High priority on writing robust unit tests and a mocking framework for external dependencies (like Google Workspace) to ensure long-term maintainability and prevent regressions.
 
 ## External Interfaces & Dependencies
 * **Google Workspace CLI (`gws`):** Used to interact with Google Drive and manage shared folders/sheets. The architecture should isolate this dependency so that if `gws` proves inadequate, we can pivot to using the Google Drive/Docs APIs directly without rewriting the core application logic.
@@ -27,7 +27,7 @@ The application must extract relevant coach-to-student assignments and timing fr
 * **Roster File:** An Excel workbook containing two distinct sheets:
   * **Email List:** Contact information (email addresses) for all participants.
   * **Coach Assignments ("Who is making dives"):** Mapping of participants to their assigned plan-maker/coach.
-  * *Constraint Mitigation (Fuzzy String Matching):* The schedule usually contains shorthand names (e.g., "Kyle H / Joe N 4way") while the roster contains formal names ("Kyle Hermberg"). The extraction pipeline must utilize advanced substring heuristics (checking dual-initials, text prefixes, and partial matches) to accurately cross-reference these records. Because unstructured text parsing is never 100% foolproof, the TUI must prominently display the generated matches so the coach can spot-check them before broadcasting emails. If an email cannot be confidently found, the system should output explicit empty brackets `[]` to visually alert the user to the missing field.
+  * *Constraint Mitigation (Fuzzy String Matching):* The schedule usually contains shorthand names (e.g., "Kyle H / Joe N 4way") while the roster contains formal names ("Kyle Hermberg"). The extraction pipeline must utilize advanced substring heuristics (checking dual-initials, text prefixes, and partial matches) to accurately cross-reference these records. This also includes support for **Coach Aliases** in the `config.json`, allowing a coach to be identified by various nicknames (e.g., "Loufek") in the schedule while maintaining their primary identity. Because unstructured text parsing is never 100% foolproof, the TUI must prominently display the generated matches so the coach can spot-check them before broadcasting emails. If an email cannot be confidently found, the system should output explicit empty brackets `[]` to visually alert the user to the missing field.
 
 ### 2. Google Workspace Automation
 Coaches use a shared Google Drive to ensure all flight plans are available in a well-known format (as coaches sometimes cover for each other). For each assigned student/group, the app should leverage `gws` to:
@@ -40,9 +40,11 @@ Coaches use a shared Google Drive to ensure all flight plans are available in a 
 * **Manage Permissions:** Update the sharing permissions on the newly created flight plan sheet so it can be viewed by "anyone with the link".
 
 ### 3. Communication Workflows
-The application should draft standardized emails to the participants:
-* **Strict Constraint (No Automated Sending):** The application MUST NEVER attempt to send emails automatically through the Gmail API or any other SMTP server. The coach uses a separate business domain for communication. The TUI must exclusively render the "To", "Subject", and "Body" fields as plain, easily copy-pasteable text (or local `.txt` files / `mailto:` links) so the coach can manually send them from their correct business client.
-* **Configurable Templates & TUI Selection:** Standardized verbiage should be fully extracted into arrays inside `config.json`. The application must handle cycling multiple templates (e.g. "Standard" vs "New Student") and allow the user to easily toggle between these template variations within the TUI before copying the draft.
+The application generates standardized emails to the participants:
+* **Automated Drafting (No Automated Sending):** The application integrates with the Gmail API to create **drafts** directly in the coach's account. This allows the coach to review, perform final tweaks, and send the email manually from their preferred Gmail client. The system MUST NEVER send emails automatically; it only populates the "To", "CC", "Subject", and "Body" fields as drafts.
+* **Inline Drafting & Header Editing:** The TUI provides a fully interactive drafting screen where "To", "CC", and "Subject" fields are permanently editable. It features a large **Draft Body** editor (`TextArea`) allowing coaches to make manual tweaks to the email body before the draft is created.
+* **Interactive Recipient Selection:** To handle complex TO/CC lists, the TUI includes a list-based popup selector. This allows coaches to quickly toggle students from the roster or coaches from the workshop list into the draft headers without manual typing.
+* **Configurable Templates & TUI Selection:** Standardized verbiage is extracted into `config.json`. The application allows cycling multiple templates (e.g. "Standard" vs "New Student") and populates the editor instantly.
 * **Initial Outreach / Discovery:** Draft an email to ask the student about their goals, what they hope to work on, and their current experience level.
   * *Contextual Rule:* If it is a 4-way group, the email should specifically ask which "slot" the person would like to fly.
 * **Plan Delivery & Logistics:** Draft a pre-workshop email containing brief introductory words, the viewable link to the generated Google Sheet plan, and a reminder of the date and time they are expected to arrive and meet at the tunnel.
@@ -63,7 +65,7 @@ The application should draft standardized emails to the participants:
 To ensure the tool remains flexible across different workshops, organizations, or seasons, all external IDs will be extracted into a central configuration file (e.g., `config.json`). The application will read this on startup to determine:
 * **Workshop Scope:** Volatile settings that change per weekend, such as `cc_emails` for active coaches. The TUI must explicitly remind the user to verify this CC list before launching the email generation workflows.
 * **Active Coach Profile (`active_coach`):** A string pointing to the identity of the currently operating coach within the `coaches` dictionary.
-* **Coach Dictionary (`coaches`):** A collection mapping every coach (e.g., `Greg`, `Doug`) to their highly personalized configuration block. This map specifically isolates each coach's formal `signature`, target `email`, and highly-specific `email_templates` dictionary (ensuring one coach's preferred outreach verbiage does not pollute another's).
+* **Coach Dictionary (`coaches`):** A collection mapping every coach (e.g., `Greg`, `Doug`) to their highly personalized configuration block. This map specifically isolates each coach's formal `signature`, target `email`, **`aliases`** (nicknames used in the schedule), and highly-specific `email_templates` dictionary (ensuring one coach's preferred outreach verbiage does not pollute another's).
 * **Parent Directories:** The Google Drive Folder ID of the "Shared Workshop" folder where new student folders should be created.
 * **Template Documents:** A mapping of template names to their Google Drive file IDs (e.g., the *Individual Skills Worksheet*).
 
