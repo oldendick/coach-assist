@@ -3,7 +3,7 @@ module github.com/oldendick/coach-assist
 go 1.26.1
 
 require (
-	github.com/gdamore/tcell/v2 v2.13.8
+	github.com/gdamore/tcell/v2 v2.13.9
 	github.com/rivo/tview v0.42.0
 	github.com/xuri/excelize/v2 v2.10.1
 )
