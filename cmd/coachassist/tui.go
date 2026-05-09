@@ -635,7 +635,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					detailText.SetText("\n\n[yellow][-] Step 3: Parsing Excel artifacts (locally)...[-]\n\n")
 				})
 
-				rows, err := ingest.ReadRawExcel(destPath, "")
+				rows, err := ingest.ReadRawExcel(destPath, 0)
 
 				app.QueueUpdateDraw(func() {
 					if err != nil {
@@ -948,8 +948,8 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		return event
 	})
 
-	showExcelSheet := func(title, path, sheetName string) {
-		rows, err := ingest.ReadRawExcel(path, sheetName)
+	showExcelSheet := func(title, path string, sheetIdx int) {
+		rows, err := ingest.ReadRawExcel(path, sheetIdx)
 		if err != nil {
 			masterScheduleTable.Clear()
 			masterScheduleTable.SetTitle(fmt.Sprintf(" %s (ESC/q: back) ", title))
@@ -1550,17 +1550,17 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 	list.AddItem("View Master Schedule", "", 'm', func() {
 		schedPath := filepath.Join("artifacts", "latest-schedule.xlsx")
-		showExcelSheet("Master Schedule", schedPath, "")
+		showExcelSheet("Master Schedule", schedPath, 0)
 	})
 
 	list.AddItem("View 'Who Makes Dives' Roster", "", 'w', func() {
 		rosterPath := filepath.Join("artifacts", "latest-roster.xlsx")
-		showExcelSheet("Who Makes Dives", rosterPath, "Who makes dives")
+		showExcelSheet("Who Makes Dives", rosterPath, 0)
 	})
 
 	list.AddItem("View Student Email List", "", 'e', func() {
 		rosterPath := filepath.Join("artifacts", "latest-roster.xlsx")
-		showExcelSheet("Student Email List", rosterPath, "Student list")
+		showExcelSheet("Student Email List", rosterPath, 1)
 	})
 
 	list.AddItem("Quit", "", 'q', func() {

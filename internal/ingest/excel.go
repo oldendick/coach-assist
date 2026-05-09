@@ -116,17 +116,17 @@ func ParseSchedule(path string) ([]domain.ScheduleRow, error) {
 
 	return result, nil
 }
-// ReadRawExcel reads all rows from a specific sheet of an Excel file.
-// If sheetName is empty, the first sheet is used.
-func ReadRawExcel(path, sheetName string) ([][]string, error) {
+// ReadRawExcel reads all rows from a specific sheet index of an Excel file.
+func ReadRawExcel(path string, sheetIdx int) ([][]string, error) {
 	f, err := excelize.OpenFile(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
+	sheetName := f.GetSheetName(sheetIdx)
 	if sheetName == "" {
-		sheetName = f.GetSheetName(0)
+		return nil, fmt.Errorf("sheet index %d out of bounds", sheetIdx)
 	}
 	return f.GetRows(sheetName)
 }
@@ -138,9 +138,14 @@ func ParseGroupAssignments(path string) (map[string]string, error) {
 	}
 	defer f.Close()
 
-	rows, err := f.GetRows("Who makes dives")
+	sheetName := f.GetSheetName(0)
+	if sheetName == "" {
+		return nil, fmt.Errorf("no sheets found in roster")
+	}
+
+	rows, err := f.GetRows(sheetName)
 	if err != nil {
-		return nil, fmt.Errorf("sheet 'Who makes dives' not found: %w", err)
+		return nil, fmt.Errorf("failed to get rows from first sheet '%s': %w", sheetName, err)
 	}
 
 	if len(rows) < 2 {
@@ -186,9 +191,14 @@ func ParseStudentEmails(path string) (map[string]string, error) {
 	}
 	defer f.Close()
 
-	rows, err := f.GetRows("Student list")
+	sheetName := f.GetSheetName(1)
+	if sheetName == "" {
+		return nil, fmt.Errorf("roster does not have a second sheet")
+	}
+
+	rows, err := f.GetRows(sheetName)
 	if err != nil {
-		return nil, fmt.Errorf("sheet 'Student list' not found: %w", err)
+		return nil, fmt.Errorf("failed to get rows from second sheet '%s': %w", sheetName, err)
 	}
 
 	if len(rows) < 2 {
