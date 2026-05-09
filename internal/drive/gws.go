@@ -57,9 +57,9 @@ func NewGWSClient(cfg *config.AppConfig) *GWSClient {
 	return &GWSClient{gwsPath: path}
 }
 
-// Probe checks if the 'gws' binary is functional and authenticated by calling 'drive about get'.
+// Probe checks if the 'gws' binary is functional and authenticated.
 func (g *GWSClient) Probe() error {
-	_, err := g.run("drive", "about", "get", "--params", `{"fields": "user"}`)
+	_, err := g.run("drive", "files", "list", "--params", `{"pageSize": 1}`)
 	return err
 }
 
@@ -70,7 +70,7 @@ func (g *GWSClient) Login() error {
 	fmt.Println("Please follow the instructions in your browser.")
 	fmt.Println("-------------------------------------------")
 
-	cmd := exec.Command(g.gwsPath, "auth", "login", "--services", "drive,gmail")
+	cmd := exec.Command(g.gwsPath, "auth", "login", "--services", "drive,gmail,sheets")
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -138,6 +138,7 @@ func (g *GWSClient) run(args ...string) ([]byte, error) {
 	if ClientSecret != "" {
 		env = append(env, "GOOGLE_WORKSPACE_CLI_CLIENT_SECRET="+ClientSecret)
 	}
+	env = append(env, "GOOGLE_WORKSPACE_CLI_LOG=debug")
 
 	cmd.Env = env
 

@@ -5,6 +5,7 @@ config.json
 # Local Go Sandbox Caches
 .go-cache/
 .go-tmp/
+.go/
 
 # External binaries (explicitly track gws)
 /bin/*
