@@ -985,13 +985,27 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 		masterScheduleTable.Clear()
 		masterScheduleTable.SetTitle(fmt.Sprintf(" %s (ESC/q: back) ", title))
+		coachName := cfg.Coaches[cfg.ActiveCoach].Name
+
 		for r := 0; r < renderRows; r++ {
 			row := rows[r]
+			
+			highlightRow := false
+			if title == "Who Makes Dives" && r > 0 && len(row) > 1 {
+				if strings.Contains(strings.ToLower(row[1]), strings.ToLower(coachName)) {
+					highlightRow = true
+				}
+			}
+
 			for c, cell := range row {
-				// Hybrid strategy: Cap column width at 30
+				// Hybrid strategy: Cap column width at 30, but allow 80 for 'Notes'
 				colWidth := trueMaxColWidths[c]
-				if colWidth > 30 {
-					colWidth = 30
+				maxAllowed := 30
+				if title == "Who Makes Dives" && c == 2 {
+					maxAllowed = 80
+				}
+				if colWidth > maxAllowed {
+					colWidth = maxAllowed
 				}
 
 				display := cell
@@ -1003,6 +1017,8 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				tableCell := tview.NewTableCell(padded)
 				if r == 0 {
 					tableCell.SetTextColor(tcell.ColorYellow)
+				} else if highlightRow {
+					tableCell.SetTextColor(tcell.ColorGreen)
 				}
 				masterScheduleTable.SetCell(r, c, tableCell)
 			}
