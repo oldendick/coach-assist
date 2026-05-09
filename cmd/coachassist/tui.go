@@ -1577,13 +1577,31 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 		rowIdx := 1
 		for _, sched := range allScheduleRows {
-			if strings.Contains(sched.Coach1, coachName) || strings.Contains(sched.Coach2, coachName) {
+			matchC1 := strings.Contains(strings.ToLower(sched.Coach1), strings.ToLower(coachName))
+			matchC2 := strings.Contains(strings.ToLower(sched.Coach2), strings.ToLower(coachName))
+
+			if matchC1 || matchC2 {
 				coachScheduleTable.SetCell(rowIdx, 0, tview.NewTableCell(sched.Date).SetReference("data"))
 				coachScheduleTable.SetCell(rowIdx, 1, tview.NewTableCell(sched.FlyingAt))
-				coachScheduleTable.SetCell(rowIdx, 2, tview.NewTableCell(sched.Coach1))
-				coachScheduleTable.SetCell(rowIdx, 3, tview.NewTableCell(sched.Group1))
-				coachScheduleTable.SetCell(rowIdx, 4, tview.NewTableCell(sched.Coach2))
-				coachScheduleTable.SetCell(rowIdx, 5, tview.NewTableCell(sched.Group2))
+
+				c1Cell := tview.NewTableCell(sched.Coach1)
+				g1Cell := tview.NewTableCell(sched.Group1)
+				if matchC1 {
+					c1Cell.SetTextColor(tcell.ColorGreen)
+					g1Cell.SetTextColor(tcell.ColorGreen)
+				}
+
+				c2Cell := tview.NewTableCell(sched.Coach2)
+				g2Cell := tview.NewTableCell(sched.Group2)
+				if matchC2 {
+					c2Cell.SetTextColor(tcell.ColorGreen)
+					g2Cell.SetTextColor(tcell.ColorGreen)
+				}
+
+				coachScheduleTable.SetCell(rowIdx, 2, c1Cell)
+				coachScheduleTable.SetCell(rowIdx, 3, g1Cell)
+				coachScheduleTable.SetCell(rowIdx, 4, c2Cell)
+				coachScheduleTable.SetCell(rowIdx, 5, g2Cell)
 				rowIdx++
 			}
 		}
