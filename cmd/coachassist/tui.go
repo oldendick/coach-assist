@@ -780,13 +780,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					folderLink = "[red](No Drive Workspace Created yet)[-]"
 				}
 
-				firstName := strings.Split(targetPlan.SubjectName, " ")[0]
-				populatedBody := body
-				populatedBody = strings.ReplaceAll(populatedBody, "{folder_link}", folderLink)
-				populatedBody = strings.ReplaceAll(populatedBody, "{groupname}", targetPlan.SubjectName)
-				populatedBody = strings.ReplaceAll(populatedBody, "{name}", targetPlan.SubjectName)
-				populatedBody = strings.ReplaceAll(populatedBody, "{firstname}", firstName)
-				populatedBody = strings.ReplaceAll(populatedBody, "{initial_meet_time}", targetPlan.ArrivalTime)
+				populatedBody := domain.PopulateTemplate(body, *targetPlan, folderLink)
 
 				toEmails := strings.Join(targetPlan.SubjectEmails, ", ")
 				if toEmails == "" {
@@ -807,9 +801,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				if subj == "" {
 					subj = "Training Plan: {name}"
 				}
-				subj = strings.ReplaceAll(subj, "{name}", targetPlan.SubjectName)
-				subj = strings.ReplaceAll(subj, "{groupname}", targetPlan.SubjectName)
-				subj = strings.ReplaceAll(subj, "{firstname}", firstName)
+				subj = domain.PopulateTemplate(subj, *targetPlan, "")
 				subjInput.SetText(subj)
 
 				curDraft.body = populatedBody + "\n\n"
@@ -1048,11 +1040,12 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 							createButton.SetBackgroundColor(tcell.ColorDarkGreen)
 
 							if selectedTemplate != nil {
-								if selectedTemplate.Type == "initial" {
+								switch selectedTemplate.Type {
+								case "initial":
 									targetPlan.IsDiscoveryDrafted = true
-								} else if selectedTemplate.Type == "plan" {
+								case "plan":
 									targetPlan.IsFinalPlanDrafted = true
-								} else if selectedTemplate.Type == "follow_up" {
+								case "follow_up":
 									targetPlan.IsFollowUpSent = true
 								}
 								appState.Assignments = assignments
@@ -1104,30 +1097,32 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		detailMenu.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 			cur := detailMenu.GetCurrentItem()
 			if event.Key() == tcell.KeyDown {
-				if cur == 0 {
+				switch cur {
+				case 0:
 					detailMenu.SetCurrentItem(2)
 					return nil
-				} else if cur == 2 {
+				case 2:
 					detailMenu.SetCurrentItem(4)
 					return nil
-				} else if cur == 4 {
+				case 4:
 					detailMenu.SetCurrentItem(6)
 					return nil
-				} else if cur == 6 {
+				case 6:
 					detailMenu.SetCurrentItem(8)
 					return nil
 				}
 			} else if event.Key() == tcell.KeyUp {
-				if cur == 8 {
+				switch cur {
+				case 8:
 					detailMenu.SetCurrentItem(6)
 					return nil
-				} else if cur == 6 {
+				case 6:
 					detailMenu.SetCurrentItem(4)
 					return nil
-				} else if cur == 4 {
+				case 4:
 					detailMenu.SetCurrentItem(2)
 					return nil
-				} else if cur == 2 {
+				case 2:
 					detailMenu.SetCurrentItem(0)
 					return nil
 				}

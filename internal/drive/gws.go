@@ -539,9 +539,10 @@ func (g *GWSClient) SearchMessages(query string) ([]MessageSummary, error) {
 
 		summary := MessageSummary{ID: msgID, Snippet: msgData.Snippet}
 		for _, h := range msgData.Payload.Headers {
-			if h.Name == "Subject" {
+			switch h.Name {
+			case "Subject":
 				summary.Subject = h.Value
-			} else if h.Name == "Date" {
+			case "Date":
 				summary.Date = h.Value
 			}
 		}

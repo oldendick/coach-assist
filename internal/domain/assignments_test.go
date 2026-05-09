@@ -12,7 +12,7 @@ func TestBuildAssignments_FiltersCorrectCoach(t *testing.T) {
 		"Test Student":  "test@test.com",
 	}
 
-	plans := BuildAssignments("Greg", schedule, nil, students)
+	plans := BuildAssignments("Greg", nil, schedule, nil, students)
 
 	if len(plans) != 2 {
 		t.Fatalf("Expected 2 assignments for Greg, got %d", len(plans))
@@ -32,7 +32,7 @@ func TestBuildAssignments_DeduplicatesGroups(t *testing.T) {
 		{Date: "Saturday", MeetAt: "09:00 AM", Coach1: "Greg", Group1: "Daniel Barney"},
 	}
 
-	plans := BuildAssignments("Greg", schedule, nil, nil)
+	plans := BuildAssignments("Greg", nil, schedule, nil, nil)
 	if len(plans) != 1 {
 		t.Errorf("Expected 1 deduplicated assignment, got %d", len(plans))
 	}
@@ -48,7 +48,7 @@ func TestBuildAssignments_ClassifiesGroups(t *testing.T) {
 	}
 	makingDivesMap := map[string]string{"Kyle H / Dan B 4way": "Greg"}
 
-	plans := BuildAssignments("Greg", schedule, makingDivesMap, nil)
+	plans := BuildAssignments("Greg", nil, schedule, makingDivesMap, nil)
 
 	if len(plans) != 2 {
 		t.Fatalf("Expected 2 plans, got %d", len(plans))
@@ -66,7 +66,7 @@ func TestBuildAssignments_Coach2Column(t *testing.T) {
 		{Date: "Saturday", MeetAt: "09:00 AM", Coach1: "Doug", Group1: "Someone", Coach2: "Greg", Group2: "Back Seat"},
 	}
 
-	plans := BuildAssignments("Greg", schedule, nil, nil)
+	plans := BuildAssignments("Greg", nil, schedule, nil, nil)
 	if len(plans) != 1 || plans[0].SubjectName != "Back Seat" {
 		t.Errorf("Should pick up Greg's assignment from Coach2 column, got %v", plans)
 	}
@@ -77,7 +77,7 @@ func TestBuildAssignments_MultiCoachSlash(t *testing.T) {
 		{Date: "Friday", MeetAt: "10:00 AM", Coach1: "Greg / Doug", Group1: "Team Alpha 4way"},
 	}
 
-	plans := BuildAssignments("Greg", schedule, nil, nil)
+	plans := BuildAssignments("Greg", nil, schedule, nil, nil)
 	if len(plans) != 1 {
 		t.Fatalf("Expected 1 assignment from multi-coach field, got %d", len(plans))
 	}
@@ -86,7 +86,7 @@ func TestBuildAssignments_MultiCoachSlash(t *testing.T) {
 	}
 
 	// Doug should also match
-	plans2 := BuildAssignments("Doug", schedule, nil, nil)
+	plans2 := BuildAssignments("Doug", nil, schedule, nil, nil)
 	if len(plans2) != 1 {
 		t.Fatalf("Doug should also match multi-coach field, got %d", len(plans2))
 	}
@@ -97,7 +97,7 @@ func TestBuildAssignments_ReservedSlot(t *testing.T) {
 		{Date: "Friday", MeetAt: "10:00 AM", Coach1: "Doug", Group1: "(Greg)", Coach2: "Steve", Group2: "Real Student"},
 	}
 
-	plans := BuildAssignments("Greg", schedule, nil, nil)
+	plans := BuildAssignments("Greg", nil, schedule, nil, nil)
 	if len(plans) != 1 {
 		t.Fatalf("Expected 1 reserved assignment, got %d", len(plans))
 	}
@@ -115,7 +115,7 @@ func TestBuildAssignments_ReservedSlotNotMatchOther(t *testing.T) {
 	}
 
 	// Doug shouldn't pick up (Greg) as his assignment
-	plans := BuildAssignments("Doug", schedule, nil, nil)
+	plans := BuildAssignments("Doug", nil, schedule, nil, nil)
 	found := false
 	for _, p := range plans {
 		if p.SubjectName == "(Greg)" {
@@ -124,5 +124,21 @@ func TestBuildAssignments_ReservedSlotNotMatchOther(t *testing.T) {
 	}
 	if found {
 		t.Error("Doug should NOT pick up (Greg) as his assignment")
+	}
+}
+
+func TestBuildAssignments_CoachNicknames(t *testing.T) {
+	schedule := []ScheduleRow{
+		{Date: "Friday", MeetAt: "10:15 AM", Coach1: "Loufek", Group1: "Test Student"},
+	}
+	// Target coach is Greg, but Greg goes by "Loufek" in the schedule
+	aliases := []string{"Loufek", "Fancy"}
+
+	plans := BuildAssignments("Greg", aliases, schedule, nil, nil)
+	if len(plans) != 1 {
+		t.Errorf("Expected 1 assignment via nickname match, got %d", len(plans))
+	}
+	if plans[0].SubjectName != "Test Student" {
+		t.Errorf("Expected Test Student, got %s", plans[0].SubjectName)
 	}
 }
