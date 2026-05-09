@@ -271,8 +271,8 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 	draftingPage := tview.NewFlex().SetDirection(tview.FlexColumn)
 	templateList := tview.NewList().ShowSecondaryText(false)
 	templateList.SetBorder(true).SetTitle(" Templates ")
-	previewText := tview.NewTextView().SetDynamicColors(true).SetWrap(true).SetRegions(true)
-	previewText.SetBorder(true).SetTitle(" Draft Preview ")
+	bodyInput := tview.NewTextArea()
+	bodyInput.SetBorder(true).SetTitle(" Draft Body (Editable) ")
 
 	toInput := tview.NewInputField().SetLabel("To:   ").SetFieldWidth(0)
 	ccInput := tview.NewInputField().SetLabel("CC:   ").SetFieldWidth(0)
@@ -289,7 +289,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 	rightPane := tview.NewFlex().SetDirection(tview.FlexRow)
 	rightPane.AddItem(draftForm, 9, 0, false)
-	rightPane.AddItem(previewText, 0, 1, false)
+	rightPane.AddItem(bodyInput, 0, 1, false)
 	rightPane.AddItem(createButton, 3, 0, false)
 
 	draftingPage.AddItem(templateList, 30, 1, true)
@@ -313,18 +313,21 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		return event
 	})
 
-	previewText.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+	bodyInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
 			detailBody.SwitchToPage("Menu")
 			app.SetFocus(detailMenu)
 			return nil
 		}
-		if event.Key() == tcell.KeyLeft || event.Key() == tcell.KeyBacktab {
-			app.SetFocus(draftForm)
+		// TextArea uses Tab for literal tabs by default. 
+		// We'll use Ctrl+Tab or Ctrl+N to move focus out if needed, 
+		// but let's see if we can just use Tab to go to Create Button.
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(createButton)
 			return nil
 		}
-		if event.Key() == tcell.KeyDown || event.Key() == tcell.KeyTab {
-			app.SetFocus(createButton)
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(draftForm)
 			return nil
 		}
 		return event
@@ -337,7 +340,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			return nil
 		}
 		if event.Key() == tcell.KeyUp || event.Key() == tcell.KeyBacktab {
-			app.SetFocus(subjInput)
+			app.SetFocus(bodyInput)
 			return nil
 		}
 		if event.Key() == tcell.KeyLeft || event.Key() == tcell.KeyTab {
@@ -814,10 +817,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					curDraft.body += coach.Signature
 				}
 
-				previewText.Clear()
-				fmt.Fprintf(previewText, "[yellow]From:[-] %s\n\n", curDraft.from)
-				fmt.Fprintf(previewText, "%s", curDraft.body)
-				previewText.ScrollToBeginning()
+				bodyInput.SetText(curDraft.body, false)
 			}
 
 			showRecipientsPopup := func(targetInput *tview.InputField, isCC bool) {
@@ -1009,7 +1009,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 					return nil
 				}
 				if event.Key() == tcell.KeyDown || event.Key() == tcell.KeyEnter || event.Key() == tcell.KeyTab {
-					app.SetFocus(createButton)
+					app.SetFocus(bodyInput)
 					return nil
 				}
 				return event
@@ -1019,6 +1019,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				finalToCsv := strings.TrimSpace(toInput.GetText())
 				finalCcCsv := strings.TrimSpace(ccInput.GetText())
 				finalSubj := strings.TrimSpace(subjInput.GetText())
+				finalBody := bodyInput.GetText()
 
 				if finalToCsv == "" || strings.Contains(finalToCsv, "[red]") {
 					createButton.SetLabel(" [red]Error: No TO recipients ")
@@ -1037,7 +1038,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 				app.SetFocus(createButton)
 
 				go func() {
-					err := driveSvc.CreateDraft(curDraft.from, finalToCsv, finalCcCsv, finalSubj, curDraft.body)
+					err := driveSvc.CreateDraft(curDraft.from, finalToCsv, finalCcCsv, finalSubj, finalBody)
 					app.QueueUpdateDraw(func() {
 						if err != nil {
 							createButton.SetLabel(fmt.Sprintf(" [red]Error: %v ", err))
@@ -1085,7 +1086,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			if len(names) > 0 {
 				updateDraftPreview(names[0])
 			} else {
-				previewText.SetText("\n\n(No templates found for this coach)")
+				bodyInput.SetText("\n\n(No templates found for this coach)", false)
 			}
 
 			detailBody.SwitchToPage("Drafting")
@@ -1171,7 +1172,11 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
 			currentPage, _ := detailBody.GetFrontPage()
 			if currentPage == "Drafting" && event.Rune() == 'q' {
-				return event
+				// Don't intercept 'q' if focus is on any input field or the body area
+				focused := app.GetFocus()
+				if focused == toInput || focused == ccInput || focused == subjInput || focused == bodyInput {
+					return event
+				}
 			}
 			// If we're on the Menu, go back to Dashboard.
 			// If we're on Text/Table, the specific captures above will handle it.
