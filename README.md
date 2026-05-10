@@ -36,6 +36,7 @@ If you download the `.zip` manually via a browser, macOS will label the app as "
 *   **Automated Gmail Drafts**: Create drafts directly in your Gmail account with one click—no copy-pasting required.
 *   **Smart Recipient Management**: Easily toggle TO and CC recipients from the student roster or coach list via interactive popups.
 *   **Coach Nicknames**: Supports aliases in the schedule (e.g., "Loufek" matches "Fancy") via `config.json`.
+*   **Template Editor (Advanced)**: A comprehensive TUI editor to manage your email templates and signatures directly within the app, featuring real-time loading and intuitive navigation.
 *   **Robust Testing**: Full suite of unit tests for assignment logic, template population, and Excel ingestion, plus a mockable Drive service for stable development.
 
 ---
@@ -56,9 +57,24 @@ If you download the `.zip` manually via a browser, macOS will label the app as "
    <br/><img width="743" height="252" alt="image" src="docs/images/google-oauth-permissions.png" />
 
 1. **Start**: Run the application:
-   ```bash
-   .\coachassist.exe
-   ```
+    ```bash
+    .\coachassist.exe
+    ```
+
+---
+
+## Email Template Editor (Advanced)
+
+The built-in Template Editor allows you to customize your coaching communications without ever touching a JSON file.
+
+*   **Side-by-Side Editing**: View and edit your Email Body and Coach Signature simultaneously.
+*   **Dynamic Sorting**: Reorder your template lists using the `Sort Order` field (lower numbers appear first).
+*   **Dashboard Integration**: Assign templates to `initial`, `plan`, or `follow_up` types to automatically map them to your status dashboard columns.
+*   **Visual Focus**: The active box is highlighted with a yellow border to ensure you always know where your keyboard inputs are going.
+*   **Navigation Shortcuts**: 
+    *   `TAB` / `Shift-TAB`: Move between selection boxes and editor fields.
+    *   `SPACE`: Toggle checkboxes (like "Include CC").
+    *   `ESC` / `Q`: Exit back to the main menu.
 
 ---
 
