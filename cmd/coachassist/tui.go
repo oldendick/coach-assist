@@ -232,6 +232,8 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			}
 		}
 
+		currentRow, currentCol := table.GetSelection()
+
 		addSection("── Group Teams ──", tcell.ColorGreen, groups)
 		addSection("── 1-on-1 Students ──", tcell.ColorAqua, solos)
 		addSection("── Reserved Slots ──", tcell.ColorDarkGray, reserved)
@@ -241,8 +243,10 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			table.SetCell(1, 0, tview.NewTableCell("  No pending assignments found.").SetSelectable(true).SetExpansion(1))
 		}
 
-		// Auto-select first data row (below the first header)
-		if table.GetRowCount() > 1 {
+		// Restore selection
+		if currentRow > 0 && currentRow < table.GetRowCount() {
+			table.Select(currentRow, currentCol)
+		} else if table.GetRowCount() > 1 {
 			table.Select(1, 0)
 		}
 	}
@@ -250,26 +254,41 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 	// === EMAIL TEMPLATE EDITOR PAGE ===
 	teCategoryList := tview.NewList().ShowSecondaryText(false).SetWrapAround(false)
 	teCategoryList.SetBorder(true).SetTitle(" Step 1: Category ")
+	teCategoryList.SetBackgroundColor(tcell.ColorDefault)
+	teCategoryList.SetMainTextColor(tcell.ColorYellow)
+	teCategoryList.SetSelectedBackgroundColor(tcell.ColorGray)
+	teCategoryList.SetSelectedTextColor(tcell.ColorBlack)
 	teCategoryList.SetFocusFunc(func() { teCategoryList.SetBorderColor(tcell.ColorYellow) })
 	teCategoryList.SetBlurFunc(func() { teCategoryList.SetBorderColor(tcell.ColorDefault) })
 
 	teNameList := tview.NewList().ShowSecondaryText(false).SetWrapAround(false)
 	teNameList.SetBorder(true).SetTitle(" Step 2: Template ")
+	teNameList.SetBackgroundColor(tcell.ColorDefault)
+	teNameList.SetMainTextColor(tcell.ColorYellow)
+	teNameList.SetSelectedBackgroundColor(tcell.ColorGray)
+	teNameList.SetSelectedTextColor(tcell.ColorBlack)
 	teNameList.SetFocusFunc(func() { teNameList.SetBorderColor(tcell.ColorYellow) })
 	teNameList.SetBlurFunc(func() { teNameList.SetBorderColor(tcell.ColorDefault) })
 
 	teEditorForm := tview.NewForm()
 	teEditorForm.SetBorder(true).SetTitle(" Step 3: Details ")
+	teEditorForm.SetBackgroundColor(tcell.ColorDefault)
+	teEditorForm.SetFieldBackgroundColor(tcell.ColorGray).SetFieldTextColor(tcell.ColorYellow)
+	teEditorForm.SetLabelColor(tcell.ColorWhite)
 	teEditorForm.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
 	teEditorForm.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
 
 	teBody := tview.NewTextArea()
 	teBody.SetBorder(true).SetTitle(" Step 4: Email Body ")
+	teBody.SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorYellow))
+	teBody.SetBackgroundColor(tcell.ColorDefault)
 	teBody.SetFocusFunc(func() { teBody.SetBorderColor(tcell.ColorYellow) })
 	teBody.SetBlurFunc(func() { teBody.SetBorderColor(tcell.ColorDefault) })
 
 	teSignature := tview.NewTextArea()
 	teSignature.SetBorder(true).SetTitle(" Step 5: Coach Signature ")
+	teSignature.SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorYellow))
+	teSignature.SetBackgroundColor(tcell.ColorDefault)
 	teSignature.SetFocusFunc(func() { teSignature.SetBorderColor(tcell.ColorYellow) })
 	teSignature.SetBlurFunc(func() { teSignature.SetBorderColor(tcell.ColorDefault) })
 
@@ -293,8 +312,6 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 
 "Sort Order" controls list order (lower numbers first).
 
-Use real newlines in the body area.
-
 [yellow]Navigation:[-]
 TAB: Next Field
 Shift-TAB: Prev Field
@@ -311,8 +328,8 @@ ESC / Q: Back to Menu`)
 	var teTypeInput *tview.DropDown
 	var teSortOrderInput *tview.InputField
 
-	teSaveBtn := tview.NewButton("  Save Changes  ")
-	teQuitBtn := tview.NewButton("  Quit Editor  ")
+	teSaveBtn := tview.NewButton("  Save Changes  ").SetStyle(tcell.StyleDefault.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite))
+	teQuitBtn := tview.NewButton("  Quit Editor  ").SetStyle(tcell.StyleDefault.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite))
 
 	teCategoryList.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		currentTECategory = mainText
@@ -331,17 +348,26 @@ ESC / Q: Back to Menu`)
 			return
 		}
 		teEditorForm.Clear(true)
+		teEditorForm.SetBackgroundColor(tcell.ColorDefault)
+		teEditorForm.SetFieldBackgroundColor(tcell.ColorGray)
+		teEditorForm.SetFieldTextColor(tcell.ColorYellow)
+		teEditorForm.SetLabelColor(tcell.ColorWhite)
 
 		teSubjInput = tview.NewInputField().SetLabel("Subject: ").SetText(tmpl.Subject).SetFieldWidth(0)
+		teSubjInput.SetFieldBackgroundColor(tcell.ColorGray).SetFieldTextColor(tcell.ColorYellow)
+		teSubjInput.SetLabelColor(tcell.ColorYellow)
 		teSubjInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
 		teSubjInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
 
 		teIncludeCCInput = tview.NewCheckbox().SetLabel("Include CC: ").SetChecked(tmpl.IncludeCC)
+		teIncludeCCInput.SetLabelColor(tcell.ColorYellow)
 		teIncludeCCInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
 		teIncludeCCInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
 
 		typeOptions := []string{"initial", "plan", "follow_up", "none"}
 		teTypeInput = tview.NewDropDown().SetLabel("Type: ").SetOptions(typeOptions, nil)
+		teTypeInput.SetFieldBackgroundColor(tcell.ColorGray).SetFieldTextColor(tcell.ColorYellow)
+		teTypeInput.SetLabelColor(tcell.ColorYellow)
 		teTypeInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
 		teTypeInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
 
@@ -354,13 +380,16 @@ ESC / Q: Back to Menu`)
 		}
 		teTypeInput.SetCurrentOption(currentTypeIdx).SetFieldWidth(15)
 
-		teSortOrderInput = tview.NewInputField().SetLabel("Sort Order: ").SetText(fmt.Sprintf("%d", tmpl.SortOrder)).SetFieldWidth(5)
-		teSortOrderInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
-		teSortOrderInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
-
 		teEditorForm.AddFormItem(teSubjInput)
 		teEditorForm.AddFormItem(teIncludeCCInput)
 		teEditorForm.AddFormItem(teTypeInput)
+
+		teSortOrderInput = tview.NewInputField().SetLabel("Sort Order: ").SetText(fmt.Sprintf("%d", tmpl.SortOrder)).SetFieldWidth(5)
+		teSortOrderInput.SetFieldBackgroundColor(tcell.ColorGray).SetFieldTextColor(tcell.ColorYellow)
+		teSortOrderInput.SetLabelColor(tcell.ColorYellow)
+		teSortOrderInput.SetBackgroundColor(tcell.ColorDefault)
+		teSortOrderInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
+		teSortOrderInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
 		teEditorForm.AddFormItem(teSortOrderInput)
 
 		teBody.SetText(tmpl.Body, false)
@@ -440,7 +469,7 @@ ESC / Q: Back to Menu`)
 
 "Sort Order" controls list order (lower numbers first).
 
-Use real newlines in the body area.
+
 
 [yellow]Navigation:[-]
 TAB: Next Field
@@ -598,7 +627,6 @@ ESC / Q: Back to Menu`)
 		return event
 	})
 
-
 	teSaveBtn.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
 			pages.SwitchToPage("Menu")
@@ -633,7 +661,6 @@ ESC / Q: Back to Menu`)
 		return event
 	})
 
-
 	// === ASSIGNMENT DETAIL VIEW ===
 	detailPage := tview.NewFlex().SetDirection(tview.FlexRow)
 	detailPage.SetBorder(true).SetTitle(" Assignment Detail View ").SetTitleAlign(tview.AlignLeft)
@@ -659,25 +686,37 @@ ESC / Q: Back to Menu`)
 	draftingPage := tview.NewFlex().SetDirection(tview.FlexColumn)
 	templateList := tview.NewList().ShowSecondaryText(false)
 	templateList.SetBorder(true).SetTitle(" Templates ")
+	templateList.SetBackgroundColor(tcell.ColorDefault)
+	templateList.SetMainTextColor(tcell.ColorYellow)
+	templateList.SetSelectedBackgroundColor(tcell.ColorGray)
+	templateList.SetSelectedTextColor(tcell.ColorBlack)
 	templateList.SetFocusFunc(func() { templateList.SetBorderColor(tcell.ColorYellow) })
 	templateList.SetBlurFunc(func() { templateList.SetBorderColor(tcell.ColorDefault) })
 
 	bodyInput := tview.NewTextArea()
 	bodyInput.SetBorder(true).SetTitle(" Draft Body (Editable) ")
+	bodyInput.SetTextStyle(tcell.StyleDefault.Foreground(tcell.ColorYellow))
+	bodyInput.SetBackgroundColor(tcell.ColorDefault)
 	bodyInput.SetFocusFunc(func() { bodyInput.SetBorderColor(tcell.ColorYellow) })
 	bodyInput.SetBlurFunc(func() { bodyInput.SetBorderColor(tcell.ColorDefault) })
 
 	var draftForm *tview.Form
 
 	toInput := tview.NewInputField().SetLabel("To:   ").SetFieldWidth(0)
+	toInput.SetFieldBackgroundColor(tcell.ColorGray).SetFieldTextColor(tcell.ColorYellow)
+	toInput.SetLabelColor(tcell.ColorYellow)
 	toInput.SetFocusFunc(func() { draftForm.SetBorderColor(tcell.ColorYellow) })
 	toInput.SetBlurFunc(func() { draftForm.SetBorderColor(tcell.ColorDefault) })
 
 	ccInput := tview.NewInputField().SetLabel("CC:   ").SetFieldWidth(0)
+	ccInput.SetFieldBackgroundColor(tcell.ColorGray).SetFieldTextColor(tcell.ColorYellow)
+	ccInput.SetLabelColor(tcell.ColorYellow)
 	ccInput.SetFocusFunc(func() { draftForm.SetBorderColor(tcell.ColorYellow) })
 	ccInput.SetBlurFunc(func() { draftForm.SetBorderColor(tcell.ColorDefault) })
 
 	subjInput := tview.NewInputField().SetLabel("Subj: ").SetFieldWidth(0)
+	subjInput.SetFieldBackgroundColor(tcell.ColorGray).SetFieldTextColor(tcell.ColorYellow)
+	subjInput.SetLabelColor(tcell.ColorYellow)
 	subjInput.SetFocusFunc(func() { draftForm.SetBorderColor(tcell.ColorYellow) })
 	subjInput.SetBlurFunc(func() { draftForm.SetBorderColor(tcell.ColorDefault) })
 
@@ -686,8 +725,12 @@ ESC / Q: Back to Menu`)
 		AddFormItem(ccInput).
 		AddFormItem(subjInput)
 	draftForm.SetBorder(true).SetTitle(" Draft Headers ")
+	draftForm.SetBackgroundColor(tcell.ColorDefault)
+	draftForm.SetFieldBackgroundColor(tcell.ColorGray)
+	draftForm.SetFieldTextColor(tcell.ColorYellow)
+	draftForm.SetLabelColor(tcell.ColorYellow)
 
-	createButton := tview.NewButton("Create Gmail Draft")
+	createButton := tview.NewButton("Create Gmail Draft").SetStyle(tcell.StyleDefault.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite))
 	createButton.SetBorder(true)
 	createButton.SetFocusFunc(func() { createButton.SetBorderColor(tcell.ColorYellow) })
 	createButton.SetBlurFunc(func() { createButton.SetBorderColor(tcell.ColorDefault) })
@@ -724,8 +767,8 @@ ESC / Q: Back to Menu`)
 			app.SetFocus(detailMenu)
 			return nil
 		}
-		// TextArea uses Tab for literal tabs by default. 
-		// We'll use Ctrl+Tab or Ctrl+N to move focus out if needed, 
+		// TextArea uses Tab for literal tabs by default.
+		// We'll use Ctrl+Tab or Ctrl+N to move focus out if needed,
 		// but let's see if we can just use Tab to go to Create Button.
 		if event.Key() == tcell.KeyTab {
 			app.SetFocus(createButton)
@@ -2303,8 +2346,8 @@ ESC / Q: Back to Menu`)
 					AddItem(nil, 0, 1, false).
 					AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 						AddItem(nil, 0, 1, false).
-						AddItem(toggleList, 8, 1, true).
-						AddItem(nil, 0, 1, false), 40, 1, true).
+						AddItem(toggleList, 10, 1, true).
+						AddItem(nil, 0, 1, false), 70, 1, true).
 					AddItem(nil, 0, 1, false)
 
 				pages.AddPage("ToggleModal", modalFlex, true, true)
