@@ -248,133 +248,255 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 	}
 
 	// === EMAIL TEMPLATE EDITOR PAGE ===
-	teCategoryList := tview.NewList().ShowSecondaryText(false)
+	teCategoryList := tview.NewList().ShowSecondaryText(false).SetWrapAround(false)
 	teCategoryList.SetBorder(true).SetTitle(" Step 1: Category ")
+	teCategoryList.SetFocusFunc(func() { teCategoryList.SetBorderColor(tcell.ColorYellow) })
+	teCategoryList.SetBlurFunc(func() { teCategoryList.SetBorderColor(tcell.ColorDefault) })
 
-	teNameList := tview.NewList().ShowSecondaryText(false)
+	teNameList := tview.NewList().ShowSecondaryText(false).SetWrapAround(false)
 	teNameList.SetBorder(true).SetTitle(" Step 2: Template ")
+	teNameList.SetFocusFunc(func() { teNameList.SetBorderColor(tcell.ColorYellow) })
+	teNameList.SetBlurFunc(func() { teNameList.SetBorderColor(tcell.ColorDefault) })
 
 	teEditorForm := tview.NewForm()
 	teEditorForm.SetBorder(true).SetTitle(" Step 3: Details ")
+	teEditorForm.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
+	teEditorForm.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
 
 	teBody := tview.NewTextArea()
 	teBody.SetBorder(true).SetTitle(" Step 4: Email Body ")
+	teBody.SetFocusFunc(func() { teBody.SetBorderColor(tcell.ColorYellow) })
+	teBody.SetBlurFunc(func() { teBody.SetBorderColor(tcell.ColorDefault) })
+
+	teSignature := tview.NewTextArea()
+	teSignature.SetBorder(true).SetTitle(" Step 5: Coach Signature ")
+	teSignature.SetFocusFunc(func() { teSignature.SetBorderColor(tcell.ColorYellow) })
+	teSignature.SetBlurFunc(func() { teSignature.SetBorderColor(tcell.ColorDefault) })
 
 	teHelp := tview.NewTextView().SetDynamicColors(true).SetWrap(true)
 	teHelp.SetBorder(true).SetTitle(" Help ")
-	teHelp.SetText(`[yellow]Available Placeholders:[-]
-{name}, {firstname}, {groupname}, {folder_link}, {initial_meet_time}
+	teHelp.SetText(`[green]Select a template type, then select a template to edit.[-]
+
+[yellow]Available Placeholders:[-]
+- {name}
+- {firstname}
+- {groupname}
+- {folder_link}
+- {initial_meet_time}
 
 [yellow]Tips:[-]
-"Type" should be:
-- initial
-- plan
-- follow_up
+"Type" controls Dashboard checkmarks:
+- [aqua]initial[-]: Outreach column
+- [aqua]plan[-]: Plan Sent column
+- [aqua]follow_up[-]: Follow-up column
+- [aqua]none[-]: No dashboard tracking
+
+"Sort Order" controls list order (lower numbers first).
 
 Use real newlines in the body area.
 
 [yellow]Navigation:[-]
 TAB: Next Field
 Shift-TAB: Prev Field
-ESC: Back to Menu`)
+SPACE: Toggle Checkboxes
+ESC / Q: Back to Menu`)
+
+	var refreshTENames func()
+	var refreshTECategories func()
 
 	var currentTECategory string
+	var currentTEName string
+	var teSubjInput *tview.InputField
+	var teIncludeCCInput *tview.Checkbox
+	var teTypeInput *tview.DropDown
+	var teSortOrderInput *tview.InputField
 
-	refreshTENames := func() {
+	teSaveBtn := tview.NewButton("  Save Changes  ")
+	teQuitBtn := tview.NewButton("  Quit Editor  ")
+
+	teCategoryList.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
+		currentTECategory = mainText
+		refreshTENames()
+	})
+
+	teNameList.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
+		currentTEName = mainText
+		coach := cfg.Coaches[cfg.ActiveCoach]
+		tmpls, ok := coach.EmailTemplates[currentTECategory]
+		if !ok {
+			return
+		}
+		tmpl, ok := tmpls[currentTEName]
+		if !ok {
+			return
+		}
+		teEditorForm.Clear(true)
+
+		teSubjInput = tview.NewInputField().SetLabel("Subject: ").SetText(tmpl.Subject).SetFieldWidth(0)
+		teSubjInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
+		teSubjInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
+
+		teIncludeCCInput = tview.NewCheckbox().SetLabel("Include CC: ").SetChecked(tmpl.IncludeCC)
+		teIncludeCCInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
+		teIncludeCCInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
+
+		typeOptions := []string{"initial", "plan", "follow_up", "none"}
+		teTypeInput = tview.NewDropDown().SetLabel("Type: ").SetOptions(typeOptions, nil)
+		teTypeInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
+		teTypeInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
+
+		currentTypeIdx := 3 // none
+		for i, opt := range typeOptions {
+			if opt == tmpl.Type {
+				currentTypeIdx = i
+				break
+			}
+		}
+		teTypeInput.SetCurrentOption(currentTypeIdx).SetFieldWidth(15)
+
+		teSortOrderInput = tview.NewInputField().SetLabel("Sort Order: ").SetText(fmt.Sprintf("%d", tmpl.SortOrder)).SetFieldWidth(5)
+		teSortOrderInput.SetFocusFunc(func() { teEditorForm.SetBorderColor(tcell.ColorYellow) })
+		teSortOrderInput.SetBlurFunc(func() { teEditorForm.SetBorderColor(tcell.ColorDefault) })
+
+		teEditorForm.AddFormItem(teSubjInput)
+		teEditorForm.AddFormItem(teIncludeCCInput)
+		teEditorForm.AddFormItem(teTypeInput)
+		teEditorForm.AddFormItem(teSortOrderInput)
+
+		teBody.SetText(tmpl.Body, false)
+	})
+
+	refreshTENames = func() {
 		teNameList.Clear()
 		coach := cfg.Coaches[cfg.ActiveCoach]
 		tmpls := coach.EmailTemplates[currentTECategory]
-		var names []string
-		for n := range tmpls {
-			names = append(names)
-			names = append(names, n)
+
+		type nameSort struct {
+			name  string
+			order int
 		}
-		sort.Strings(names)
-		for _, n := range names {
-			name := n
-			teNameList.AddItem(name, "", 0, func() {
-				tmpl := coach.EmailTemplates[currentTECategory][name]
-				teEditorForm.Clear(true)
+		var list []nameSort
+		for n, t := range tmpls {
+			list = append(list, nameSort{name: n, order: t.SortOrder})
+		}
+		sort.Slice(list, func(i, j int) bool {
+			if list[i].order != list[j].order {
+				return list[i].order < list[j].order
+			}
+			return list[i].name < list[j].name
+		})
 
-				subj := tview.NewInputField().SetLabel("Subject: ").SetText(tmpl.Subject).SetFieldWidth(0)
-				includeCC := tview.NewCheckbox().SetLabel("Include CC: ").SetChecked(tmpl.IncludeCC)
-				eType := tview.NewInputField().SetLabel("Type: ").SetText(tmpl.Type).SetFieldWidth(0)
-				sortOrder := tview.NewInputField().SetLabel("Sort Order: ").SetText(fmt.Sprintf("%d", tmpl.SortOrder)).SetFieldWidth(0)
+		for _, item := range list {
+			teNameList.AddItem(item.name, "", 0, nil)
+		}
+	}
 
-				teEditorForm.AddFormItem(subj)
-				teEditorForm.AddFormItem(includeCC)
-				teEditorForm.AddFormItem(eType)
-				teEditorForm.AddFormItem(sortOrder)
+	teSaveBtn.SetSelectedFunc(func() {
+		coach := cfg.Coaches[cfg.ActiveCoach]
+		coach.Signature = teSignature.GetText()
+		cfg.Coaches[cfg.ActiveCoach] = coach
 
-				teBody.SetText(tmpl.Body, false)
+		if currentTEName == "" {
+			// Just save signature if no template selected
+			if err := config.SaveConfig("config.json", cfg); err != nil {
+				teHelp.SetText(fmt.Sprintf("[red]Error saving config: %v", err))
+			} else {
+				teHelp.SetText("[green]Coach Signature saved successfully!")
+			}
+			return
+		}
+		valSort, _ := strconv.Atoi(teSortOrderInput.GetText())
+		_, typeVal := teTypeInput.GetCurrentOption()
+		updated := config.EmailTemplate{
+			Subject:   teSubjInput.GetText(),
+			IncludeCC: teIncludeCCInput.IsChecked(),
+			Type:      typeVal,
+			SortOrder: valSort,
+			Body:      teBody.GetText(),
+		}
+		cfg.Coaches[cfg.ActiveCoach].EmailTemplates[currentTECategory][currentTEName] = updated
+		if err := config.SaveConfig("config.json", cfg); err != nil {
+			teHelp.SetText(fmt.Sprintf("[red]Error saving config: %v", err))
+		} else {
+			teHelp.SetText("[green]Template and Signature saved successfully!")
+			go func() {
+				time.Sleep(3 * time.Second)
+				app.QueueUpdateDraw(func() {
+					teHelp.SetText(`[green]Select a template type, then select a template to edit.[-]
 
-				teEditorForm.AddButton("Save Changes", func() {
-					valSort, _ := strconv.Atoi(sortOrder.GetText())
-					updated := config.EmailTemplate{
-						Subject:   subj.GetText(),
-						IncludeCC: includeCC.IsChecked(),
-						Type:      eType.GetText(),
-						SortOrder: valSort,
-						Body:      teBody.GetText(),
-					}
-					cfg.Coaches[cfg.ActiveCoach].EmailTemplates[currentTECategory][name] = updated
-					if err := config.SaveConfig("config.json", cfg); err != nil {
-						teHelp.SetText(fmt.Sprintf("[red]Error saving config: %v", err))
-					} else {
-						teHelp.SetText("[green]Template saved successfully!")
-						go func() {
-							time.Sleep(3 * time.Second)
-							app.QueueUpdateDraw(func() {
-								teHelp.SetText(`[yellow]Available Placeholders:[-]
-{name}, {firstname}, {groupname}, {folder_link}, {initial_meet_time}
+[yellow]Available Placeholders:[-]
+- {name}
+- {firstname}
+- {groupname}
+- {folder_link}
+- {initial_meet_time}
 
 [yellow]Tips:[-]
-"Type" should be:
-- initial
-- plan
-- follow_up
+"Type" controls Dashboard checkmarks:
+- [aqua]initial[-]: Outreach column
+- [aqua]plan[-]: Plan Sent column
+- [aqua]follow_up[-]: Follow-up column
+- [aqua]none[-]: No dashboard tracking
+
+"Sort Order" controls list order (lower numbers first).
 
 Use real newlines in the body area.
 
 [yellow]Navigation:[-]
 TAB: Next Field
 Shift-TAB: Prev Field
-ESC: Back to Menu`)
-							})
-						}()
-					}
+SPACE: Toggle Checkboxes
+ESC / Q: Back to Menu`)
 				})
-
-				app.SetFocus(teEditorForm)
-			})
+			}()
 		}
-		app.SetFocus(teNameList)
-	}
+	})
 
-	refreshTECategories := func() {
+	teQuitBtn.SetSelectedFunc(func() {
+		pages.SwitchToPage("Menu")
+		app.SetFocus(list)
+	})
+
+	refreshTECategories = func() {
 		teCategoryList.Clear()
 		coach := cfg.Coaches[cfg.ActiveCoach]
+		teSignature.SetText(coach.Signature, false)
 		var cats []string
 		for c := range coach.EmailTemplates {
 			cats = append(cats, c)
 		}
 		sort.Strings(cats)
 		for _, c := range cats {
-			cat := c
-			teCategoryList.AddItem(cat, "", 0, func() {
-				currentTECategory = cat
-				refreshTENames()
-			})
+			teCategoryList.AddItem(c, "", 0, nil)
 		}
 	}
 
 	teEditorPage := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-			AddItem(teCategoryList, 20, 1, true).
-			AddItem(teNameList, 25, 1, false).
-			AddItem(teEditorForm, 0, 2, false).
-			AddItem(teHelp, 35, 0, false), 15, 0, true).
-		AddItem(teBody, 0, 1, false)
+			AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+				AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+					AddItem(teCategoryList, 0, 1, true).
+					AddItem(teNameList, 0, 1, false).
+					AddItem(teEditorForm, 0, 2, false), 14, 0, true).
+				AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+					AddItem(teBody, 0, 1, false).
+					AddItem(teSignature, 0, 1, false), 0, 1, false), 0, 1, true).
+			AddItem(teHelp, 35, 0, false), 0, 1, true).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+			AddItem(nil, 0, 1, false).
+			AddItem(teSaveBtn, 20, 0, false).
+			AddItem(nil, 2, 0, false).
+			AddItem(teQuitBtn, 20, 0, false).
+			AddItem(nil, 0, 1, false), 3, 0, false)
+
+	teEditorPage.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
+		return event
+	})
 
 	teCategoryList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
@@ -385,14 +507,29 @@ ESC: Back to Menu`)
 		if event.Key() == tcell.KeyRight || event.Key() == tcell.KeyTab {
 			if teNameList.GetItemCount() > 0 {
 				app.SetFocus(teNameList)
+			} else {
+				app.SetFocus(teEditorForm)
 			}
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab || event.Key() == tcell.KeyLeft {
+			app.SetFocus(teQuitBtn)
 			return nil
 		}
 		return event
 	})
 
 	teNameList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyLeft {
+		if event.Rune() == 'q' {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
+		if event.Key() == tcell.KeyRight || event.Key() == tcell.KeyTab {
+			app.SetFocus(teEditorForm)
+			return nil
+		}
+		if event.Key() == tcell.KeyLeft || event.Key() == tcell.KeyBacktab {
 			app.SetFocus(teCategoryList)
 			return nil
 		}
@@ -405,17 +542,21 @@ ESC: Back to Menu`)
 	})
 
 	teEditorForm.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
 		if event.Key() == tcell.KeyTab {
-			// If we are at the last item (the button), go to Body
-			_, buttonIdx := teEditorForm.GetFocusedItemIndex()
-			if buttonIdx == 0 { // Save button
+			itemIdx, _ := teEditorForm.GetFocusedItemIndex()
+			if itemIdx == 3 { // Last field (Sort Order)
 				app.SetFocus(teBody)
 				return nil
 			}
 		}
 		if event.Key() == tcell.KeyBacktab {
 			itemIdx, _ := teEditorForm.GetFocusedItemIndex()
-			if itemIdx == 0 {
+			if itemIdx == 0 { // Subject field
 				app.SetFocus(teNameList)
 				return nil
 			}
@@ -424,8 +565,13 @@ ESC: Back to Menu`)
 	})
 
 	teBody.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
 		if event.Key() == tcell.KeyTab {
-			app.SetFocus(teCategoryList)
+			app.SetFocus(teSignature)
 			return nil
 		}
 		if event.Key() == tcell.KeyBacktab {
@@ -434,6 +580,59 @@ ESC: Back to Menu`)
 		}
 		return event
 	})
+
+	teSignature.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(teSaveBtn)
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(teBody)
+			return nil
+		}
+		return event
+	})
+
+
+	teSaveBtn.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(teQuitBtn)
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(teSignature)
+			return nil
+		}
+		return event
+	})
+
+	teQuitBtn.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(teCategoryList)
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(teSaveBtn)
+			return nil
+		}
+		return event
+	})
+
 
 	// === ASSIGNMENT DETAIL VIEW ===
 	detailPage := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -2208,7 +2407,7 @@ ESC: Back to Menu`)
 		showExcelSheet("Student Email List", rosterPath, 1)
 	})
 
-	list.AddItem("Edit Email Templates", "Modify subjects and bodies in config.json", 't', func() {
+	list.AddItem("Edit Email Templates (Advanced)", "", 't', func() {
 		refreshTECategories()
 		pages.SwitchToPage("TemplateEditor")
 		app.SetFocus(teCategoryList)
