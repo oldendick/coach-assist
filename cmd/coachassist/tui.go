@@ -1156,7 +1156,11 @@ ESC / Q: Back to Menu`)
 					}
 
 					trueMaxColWidths := make(map[int]int)
+					maxCols := 0
 					for r := 0; r < renderRows; r++ {
+						if len(rows[r]) > maxCols {
+							maxCols = len(rows[r])
+						}
 						for c, cell := range rows[r] {
 							if len(cell) > trueMaxColWidths[c] {
 								trueMaxColWidths[c] = len(cell)
@@ -1165,8 +1169,11 @@ ESC / Q: Back to Menu`)
 					}
 
 					for r := 0; r < renderRows; r++ {
-						rRows := rows[r]
-						for c, cell := range rRows {
+						for c := 0; c < maxCols; c++ {
+							cell := ""
+							if c < len(rows[r]) {
+								cell = rows[r][c]
+							}
 							colWidth := trueMaxColWidths[c]
 							if colWidth > 30 {
 								colWidth = 30

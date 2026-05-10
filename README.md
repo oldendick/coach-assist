@@ -70,11 +70,14 @@ The built-in Template Editor allows you to customize your coaching communication
 *   **Side-by-Side Editing**: View and edit your Email Body and Coach Signature simultaneously.
 *   **Dynamic Sorting**: Reorder your template lists using the `Sort Order` field (lower numbers appear first).
 *   **Dashboard Integration**: Assign templates to `initial`, `plan`, or `follow_up` types to automatically map them to your status dashboard columns.
-*   **Visual Focus**: The active box is highlighted with a yellow border to ensure you always know where your keyboard inputs are going.
+*   **High-Contrast UI**: A vibrant "Yellow-on-Gray/Black" accessibility theme is applied across all editors to ensure maximum readability in any terminal environment.
+*   **Spreadsheet Grid Normalization**: Master Schedules and Training Plans are rendered as consistent rectangular grids, allowing for smooth navigation into empty cells and large spreadsheets.
 *   **Navigation Shortcuts**: 
     *   `TAB` / `Shift-TAB`: Move between selection boxes and editor fields.
     *   `SPACE`: Toggle checkboxes (like "Include CC").
     *   `ESC` / `Q`: Exit back to the main menu.
+    *   **Arrow Keys**: Navigate smoothly through normalized spreadsheet grids.
+*   **Selection Persistence**: Interactive lists and tables now remember your cursor position during refreshes, preventing the "jump-to-top" behavior during edits.
 
 ---
 
