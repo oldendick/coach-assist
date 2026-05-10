@@ -1016,16 +1016,37 @@ ESC / Q: Back to Menu`)
 			detailTable.SetCell(0, 4, tview.NewTableCell("Coach 2").SetTextColor(tcell.ColorYellow))
 			detailTable.SetCell(0, 5, tview.NewTableCell("Group 2").SetTextColor(tcell.ColorYellow))
 
+			coachName := cfg.Coaches[cfg.ActiveCoach].Name
+			aliases := cfg.Coaches[cfg.ActiveCoach].Aliases
+
 			rowIdx := 1
 			searchName := strings.TrimSpace(targetPlan.SubjectName)
 			for _, sched := range allScheduleRows {
 				if strings.Contains(sched.Group1, searchName) || strings.Contains(sched.Group2, searchName) {
+					matchC1 := domain.CoachMatches(sched.Coach1, coachName, aliases)
+					matchC2 := domain.CoachMatches(sched.Coach2, coachName, aliases)
+
 					detailTable.SetCell(rowIdx, 0, tview.NewTableCell(sched.Date).SetReference("data"))
 					detailTable.SetCell(rowIdx, 1, tview.NewTableCell(sched.FlyingAt))
-					detailTable.SetCell(rowIdx, 2, tview.NewTableCell(sched.Coach1))
-					detailTable.SetCell(rowIdx, 3, tview.NewTableCell(sched.Group1))
-					detailTable.SetCell(rowIdx, 4, tview.NewTableCell(sched.Coach2))
-					detailTable.SetCell(rowIdx, 5, tview.NewTableCell(sched.Group2))
+
+					c1Cell := tview.NewTableCell(sched.Coach1)
+					g1Cell := tview.NewTableCell(sched.Group1)
+					if matchC1 {
+						c1Cell.SetTextColor(tcell.ColorGreen)
+						g1Cell.SetTextColor(tcell.ColorGreen)
+					}
+					detailTable.SetCell(rowIdx, 2, c1Cell)
+					detailTable.SetCell(rowIdx, 3, g1Cell)
+
+					c2Cell := tview.NewTableCell(sched.Coach2)
+					g2Cell := tview.NewTableCell(sched.Group2)
+					if matchC2 {
+						c2Cell.SetTextColor(tcell.ColorGreen)
+						g2Cell.SetTextColor(tcell.ColorGreen)
+					}
+					detailTable.SetCell(rowIdx, 4, c2Cell)
+					detailTable.SetCell(rowIdx, 5, g2Cell)
+
 					rowIdx++
 				}
 			}
