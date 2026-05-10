@@ -659,14 +659,29 @@ ESC / Q: Back to Menu`)
 	draftingPage := tview.NewFlex().SetDirection(tview.FlexColumn)
 	templateList := tview.NewList().ShowSecondaryText(false)
 	templateList.SetBorder(true).SetTitle(" Templates ")
+	templateList.SetFocusFunc(func() { templateList.SetBorderColor(tcell.ColorYellow) })
+	templateList.SetBlurFunc(func() { templateList.SetBorderColor(tcell.ColorDefault) })
+
 	bodyInput := tview.NewTextArea()
 	bodyInput.SetBorder(true).SetTitle(" Draft Body (Editable) ")
+	bodyInput.SetFocusFunc(func() { bodyInput.SetBorderColor(tcell.ColorYellow) })
+	bodyInput.SetBlurFunc(func() { bodyInput.SetBorderColor(tcell.ColorDefault) })
+
+	var draftForm *tview.Form
 
 	toInput := tview.NewInputField().SetLabel("To:   ").SetFieldWidth(0)
-	ccInput := tview.NewInputField().SetLabel("CC:   ").SetFieldWidth(0)
-	subjInput := tview.NewInputField().SetLabel("Subj: ").SetFieldWidth(0)
+	toInput.SetFocusFunc(func() { draftForm.SetBorderColor(tcell.ColorYellow) })
+	toInput.SetBlurFunc(func() { draftForm.SetBorderColor(tcell.ColorDefault) })
 
-	draftForm := tview.NewForm().
+	ccInput := tview.NewInputField().SetLabel("CC:   ").SetFieldWidth(0)
+	ccInput.SetFocusFunc(func() { draftForm.SetBorderColor(tcell.ColorYellow) })
+	ccInput.SetBlurFunc(func() { draftForm.SetBorderColor(tcell.ColorDefault) })
+
+	subjInput := tview.NewInputField().SetLabel("Subj: ").SetFieldWidth(0)
+	subjInput.SetFocusFunc(func() { draftForm.SetBorderColor(tcell.ColorYellow) })
+	subjInput.SetBlurFunc(func() { draftForm.SetBorderColor(tcell.ColorDefault) })
+
+	draftForm = tview.NewForm().
 		AddFormItem(toInput).
 		AddFormItem(ccInput).
 		AddFormItem(subjInput)
@@ -674,6 +689,8 @@ ESC / Q: Back to Menu`)
 
 	createButton := tview.NewButton("Create Gmail Draft")
 	createButton.SetBorder(true)
+	createButton.SetFocusFunc(func() { createButton.SetBorderColor(tcell.ColorYellow) })
+	createButton.SetBlurFunc(func() { createButton.SetBorderColor(tcell.ColorDefault) })
 
 	rightPane := tview.NewFlex().SetDirection(tview.FlexRow)
 	rightPane.AddItem(draftForm, 9, 0, false)
