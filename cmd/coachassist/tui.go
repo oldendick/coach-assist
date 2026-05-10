@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -245,6 +246,194 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 			table.Select(1, 0)
 		}
 	}
+
+	// === EMAIL TEMPLATE EDITOR PAGE ===
+	teCategoryList := tview.NewList().ShowSecondaryText(false)
+	teCategoryList.SetBorder(true).SetTitle(" Step 1: Category ")
+
+	teNameList := tview.NewList().ShowSecondaryText(false)
+	teNameList.SetBorder(true).SetTitle(" Step 2: Template ")
+
+	teEditorForm := tview.NewForm()
+	teEditorForm.SetBorder(true).SetTitle(" Step 3: Details ")
+
+	teBody := tview.NewTextArea()
+	teBody.SetBorder(true).SetTitle(" Step 4: Email Body ")
+
+	teHelp := tview.NewTextView().SetDynamicColors(true).SetWrap(true)
+	teHelp.SetBorder(true).SetTitle(" Help ")
+	teHelp.SetText(`[yellow]Available Placeholders:[-]
+{name}, {firstname}, {groupname}, {folder_link}, {initial_meet_time}
+
+[yellow]Tips:[-]
+"Type" should be:
+- initial
+- plan
+- follow_up
+
+Use real newlines in the body area.
+
+[yellow]Navigation:[-]
+TAB: Next Field
+Shift-TAB: Prev Field
+ESC: Back to Menu`)
+
+	var currentTECategory string
+
+	refreshTENames := func() {
+		teNameList.Clear()
+		coach := cfg.Coaches[cfg.ActiveCoach]
+		tmpls := coach.EmailTemplates[currentTECategory]
+		var names []string
+		for n := range tmpls {
+			names = append(names)
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			name := n
+			teNameList.AddItem(name, "", 0, func() {
+				tmpl := coach.EmailTemplates[currentTECategory][name]
+				teEditorForm.Clear(true)
+
+				subj := tview.NewInputField().SetLabel("Subject: ").SetText(tmpl.Subject).SetFieldWidth(0)
+				includeCC := tview.NewCheckbox().SetLabel("Include CC: ").SetChecked(tmpl.IncludeCC)
+				eType := tview.NewInputField().SetLabel("Type: ").SetText(tmpl.Type).SetFieldWidth(0)
+				sortOrder := tview.NewInputField().SetLabel("Sort Order: ").SetText(fmt.Sprintf("%d", tmpl.SortOrder)).SetFieldWidth(0)
+
+				teEditorForm.AddFormItem(subj)
+				teEditorForm.AddFormItem(includeCC)
+				teEditorForm.AddFormItem(eType)
+				teEditorForm.AddFormItem(sortOrder)
+
+				teBody.SetText(tmpl.Body, false)
+
+				teEditorForm.AddButton("Save Changes", func() {
+					valSort, _ := strconv.Atoi(sortOrder.GetText())
+					updated := config.EmailTemplate{
+						Subject:   subj.GetText(),
+						IncludeCC: includeCC.IsChecked(),
+						Type:      eType.GetText(),
+						SortOrder: valSort,
+						Body:      teBody.GetText(),
+					}
+					cfg.Coaches[cfg.ActiveCoach].EmailTemplates[currentTECategory][name] = updated
+					if err := config.SaveConfig("config.json", cfg); err != nil {
+						teHelp.SetText(fmt.Sprintf("[red]Error saving config: %v", err))
+					} else {
+						teHelp.SetText("[green]Template saved successfully!")
+						go func() {
+							time.Sleep(3 * time.Second)
+							app.QueueUpdateDraw(func() {
+								teHelp.SetText(`[yellow]Available Placeholders:[-]
+{name}, {firstname}, {groupname}, {folder_link}, {initial_meet_time}
+
+[yellow]Tips:[-]
+"Type" should be:
+- initial
+- plan
+- follow_up
+
+Use real newlines in the body area.
+
+[yellow]Navigation:[-]
+TAB: Next Field
+Shift-TAB: Prev Field
+ESC: Back to Menu`)
+							})
+						}()
+					}
+				})
+
+				app.SetFocus(teEditorForm)
+			})
+		}
+		app.SetFocus(teNameList)
+	}
+
+	refreshTECategories := func() {
+		teCategoryList.Clear()
+		coach := cfg.Coaches[cfg.ActiveCoach]
+		var cats []string
+		for c := range coach.EmailTemplates {
+			cats = append(cats, c)
+		}
+		sort.Strings(cats)
+		for _, c := range cats {
+			cat := c
+			teCategoryList.AddItem(cat, "", 0, func() {
+				currentTECategory = cat
+				refreshTENames()
+			})
+		}
+	}
+
+	teEditorPage := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+			AddItem(teCategoryList, 20, 1, true).
+			AddItem(teNameList, 25, 1, false).
+			AddItem(teEditorForm, 0, 2, false).
+			AddItem(teHelp, 35, 0, false), 15, 0, true).
+		AddItem(teBody, 0, 1, false)
+
+	teCategoryList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape || event.Rune() == 'q' {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
+		if event.Key() == tcell.KeyRight || event.Key() == tcell.KeyTab {
+			if teNameList.GetItemCount() > 0 {
+				app.SetFocus(teNameList)
+			}
+			return nil
+		}
+		return event
+	})
+
+	teNameList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyLeft {
+			app.SetFocus(teCategoryList)
+			return nil
+		}
+		if event.Key() == tcell.KeyEscape {
+			pages.SwitchToPage("Menu")
+			app.SetFocus(list)
+			return nil
+		}
+		return event
+	})
+
+	teEditorForm.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			// If we are at the last item (the button), go to Body
+			_, buttonIdx := teEditorForm.GetFocusedItemIndex()
+			if buttonIdx == 0 { // Save button
+				app.SetFocus(teBody)
+				return nil
+			}
+		}
+		if event.Key() == tcell.KeyBacktab {
+			itemIdx, _ := teEditorForm.GetFocusedItemIndex()
+			if itemIdx == 0 {
+				app.SetFocus(teNameList)
+				return nil
+			}
+		}
+		return event
+	})
+
+	teBody.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(teCategoryList)
+			return nil
+		}
+		if event.Key() == tcell.KeyBacktab {
+			app.SetFocus(teEditorForm)
+			return nil
+		}
+		return event
+	})
 
 	// === ASSIGNMENT DETAIL VIEW ===
 	detailPage := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -2019,6 +2208,12 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 		showExcelSheet("Student Email List", rosterPath, 1)
 	})
 
+	list.AddItem("Edit Email Templates", "Modify subjects and bodies in config.json", 't', func() {
+		refreshTECategories()
+		pages.SwitchToPage("TemplateEditor")
+		app.SetFocus(teCategoryList)
+	})
+
 	list.AddItem("Quit", "", 'q', func() {
 		app.Stop()
 	})
@@ -2055,6 +2250,7 @@ func RunTUI(cfg *config.AppConfig, driveSvc drive.WorkspaceService, version stri
 	pages.AddPage("AssignmentDetail", detailPage, true, false)
 	pages.AddPage("CoachSchedule", coachScheduleTable, true, false)
 	pages.AddPage("MasterSchedule", masterScheduleTable, true, false)
+	pages.AddPage("TemplateEditor", teEditorPage, true, false)
 
 	mainContainer.AddItem(pages, 0, 1, true)
 
