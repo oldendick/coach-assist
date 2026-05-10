@@ -1640,7 +1640,11 @@ ESC / Q: Back to Menu`)
 		}
 
 		trueMaxColWidths := make(map[int]int)
+		maxCols := 0
 		for r := 0; r < renderRows; r++ {
+			if len(rows[r]) > maxCols {
+				maxCols = len(rows[r])
+			}
 			for c, cell := range rows[r] {
 				if len(cell) > trueMaxColWidths[c] {
 					trueMaxColWidths[c] = len(cell)
@@ -1694,7 +1698,12 @@ ESC / Q: Back to Menu`)
 				}
 			}
 
-			for c, cell := range row {
+			for c := 0; c < maxCols; c++ {
+				cell := ""
+				if c < len(row) {
+					cell = row[c]
+				}
+
 				// Hybrid strategy: Cap column width at 30, but allow 80 for 'Notes'
 				colWidth := trueMaxColWidths[c]
 				maxAllowed := 30
