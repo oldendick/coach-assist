@@ -1648,16 +1648,47 @@ ESC / Q: Back to Menu`)
 			}
 		}
 
-		masterScheduleTable.Clear()
-		masterScheduleTable.SetTitle(fmt.Sprintf(" %s (ESC/q: back) ", title))
 		coachName := cfg.Coaches[cfg.ActiveCoach].Name
+		aliases := cfg.Coaches[cfg.ActiveCoach].Aliases
+
+		// Identify columns for Master Schedule highlighting (Search first 10 rows for headers)
+		coach1Idx, coach2Idx, group1Idx, group2Idx := -1, -1, -1, -1
+		if title == "Master Schedule" && len(rows) > 0 {
+			limit := 10
+			if len(rows) < 10 {
+				limit = len(rows)
+			}
+			for r := 0; r < limit; r++ {
+				for c, header := range rows[r] {
+					h := strings.ToLower(strings.TrimSpace(header))
+					if strings.Contains(h, "coach 1") {
+						coach1Idx = c
+					} else if strings.Contains(h, "coach 2") {
+						coach2Idx = c
+					} else if strings.Contains(h, "group 1") {
+						group1Idx = c
+					} else if strings.Contains(h, "group 2") {
+						group2Idx = c
+					}
+				}
+				if coach1Idx != -1 || coach2Idx != -1 {
+					break // Found the header row
+				}
+			}
+		}
+
+		masterScheduleTable.Clear()
+		debugInfo := ""
+		if title == "Master Schedule" {
+			debugInfo = fmt.Sprintf(" [C1:%d, G1:%d, C2:%d, G2:%d]", coach1Idx, group1Idx, coach2Idx, group2Idx)
+		}
+		masterScheduleTable.SetTitle(fmt.Sprintf(" %s%s (ESC/q: back) ", title, debugInfo))
 
 		for r := 0; r < renderRows; r++ {
 			row := rows[r]
 
 			highlightRow := false
 			if title == "Who Makes Dives" && r > 0 {
-				aliases := cfg.Coaches[cfg.ActiveCoach].Aliases
 				if len(row) > 1 && domain.CoachMatches(row[1], coachName, aliases) {
 					highlightRow = true
 				}
@@ -1683,8 +1714,20 @@ ESC / Q: Back to Menu`)
 				tableCell := tview.NewTableCell(padded)
 				if r == 0 {
 					tableCell.SetTextColor(tcell.ColorYellow)
-				} else if highlightRow {
-					tableCell.SetTextColor(tcell.ColorGreen)
+				} else {
+					if highlightRow {
+						tableCell.SetTextColor(tcell.ColorGreen)
+					}
+					if title == "Master Schedule" {
+						matchC1 := coach1Idx != -1 && len(row) > coach1Idx && domain.CoachMatches(row[coach1Idx], coachName, aliases)
+						matchC2 := coach2Idx != -1 && len(row) > coach2Idx && domain.CoachMatches(row[coach2Idx], coachName, aliases)
+
+						if (c == coach1Idx || (group1Idx != -1 && c == group1Idx)) && matchC1 {
+							tableCell.SetTextColor(tcell.ColorGreen)
+						} else if (c == coach2Idx || (group2Idx != -1 && c == group2Idx)) && matchC2 {
+							tableCell.SetTextColor(tcell.ColorGreen)
+						}
+					}
 				}
 				masterScheduleTable.SetCell(r, c, tableCell)
 			}
