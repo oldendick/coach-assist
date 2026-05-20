@@ -117,9 +117,11 @@ type WorkshopConfig struct {
 }
 
 type DriveConfig struct {
-	WorkshopParentFolderID string `json:"workshop_parent_folder_id"`
-	TeamsFolderID          string `json:"teams_folder_id"`
-	Templates              struct {
+	WorkshopParentFolderID   string `json:"workshop_parent_folder_id"`
+	TeamsFolderID            string `json:"teams_folder_id"`
+	WorkshopParentFolderLink string `json:"workshop_parent_folder_link"`
+	TeamsFolderLink          string `json:"teams_folder_link"`
+	Templates                struct {
 		IndividualSkillsWorksheetID string `json:"individual_skills_worksheet_id"`
 		TeamTrainingPlanID          string `json:"team_training_plan_id"`
 	} `json:"templates"`

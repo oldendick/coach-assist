@@ -69,6 +69,8 @@
   "google_drive": {
     "workshop_parent_folder_id": "PASTE_YOUR_FOLDER_ID_HERE",
     "teams_folder_id": "PASTE_YOUR_FOLDER_ID_HERE",
+    "workshop_parent_folder_link": "PASTE_YOUR_FOLDER_LINK_HERE",
+    "teams_folder_link": "PASTE_YOUR_FOLDER_LINK_HERE",
     "templates": {
       "individual_skills_worksheet_id": "PASTE_YOUR_FILE_ID_HERE",
       "team_training_plan_id": "PASTE_YOUR_FILE_ID_HERE"

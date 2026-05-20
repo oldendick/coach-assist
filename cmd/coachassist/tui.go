@@ -2590,7 +2590,26 @@ ESC / Q: Back to Menu`)
 		list.SetItemText(3, "[✅] Sync 'Who Makes Dives' Roster", fmt.Sprintf("File: %s | Subject: '%s'", fn, subj))
 	}
 
-	pages.AddPage("Menu", list, true, true)
+	menuLayout := tview.NewFlex().SetDirection(tview.FlexRow)
+	menuLayout.AddItem(list, 0, 1, true)
+
+	hasLinks := cfg.Drive.WorkshopParentFolderLink != "" || cfg.Drive.TeamsFolderLink != ""
+	if hasLinks {
+		linksView := tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignLeft)
+		linksView.SetBorder(true).SetTitle(" 🔗 Common Links ").SetTitleAlign(tview.AlignLeft)
+
+		var linksText []string
+		if cfg.Drive.WorkshopParentFolderLink != "" {
+			linksText = append(linksText, fmt.Sprintf("  Workshop Folder: [yellow]%s[white]", cfg.Drive.WorkshopParentFolderLink))
+		}
+		if cfg.Drive.TeamsFolderLink != "" {
+			linksText = append(linksText, fmt.Sprintf("  Teams Folder:    [yellow]%s[white]", cfg.Drive.TeamsFolderLink))
+		}
+		linksView.SetText("\n" + strings.Join(linksText, "\n") + "\n")
+		menuLayout.AddItem(linksView, len(linksText)+4, 1, false)
+	}
+
+	pages.AddPage("Menu", menuLayout, true, true)
 	pages.AddPage("Dashboard", table, true, false)
 	pages.AddPage("AssignmentDetail", detailPage, true, false)
 	pages.AddPage("CoachSchedule", coachScheduleTable, true, false)
