@@ -2106,6 +2106,12 @@ ESC / Q: Back to Menu`)
 				if assignments[i].IsReserved {
 					continue
 				}
+				// Reset Google Drive resolution state before matching
+				assignments[i].IsWorkspaceCreated = false
+				assignments[i].DriveFolderID = ""
+				assignments[i].HasTrainingPlan = false
+				assignments[i].DriveFileID = ""
+
 				for _, item := range allItems {
 					if domain.FolderMatchesAssignment(item.Name, assignments[i].SubjectName) {
 						assignments[i].IsWorkspaceCreated = true

@@ -40,8 +40,15 @@ func TestFolderMatch_NoMatch(t *testing.T) {
 	}
 }
 
+func TestFolderMatch_DaneGregVsDanWRui(t *testing.T) {
+	if FolderMatchesAssignment("Dan W / Jon H / Rui 4way Team Training Plan", "Dane / Greg 4way") {
+		t.Error("Dane / Greg 4way should not match Dan W / Jon H / Rui 4way Team Training Plan")
+	}
+}
+
 func TestFolderMatch_EmptyInput(t *testing.T) {
 	if FolderMatchesAssignment("", "Daniel Barney") {
 		t.Error("Empty folder name should not match")
 	}
 }
+

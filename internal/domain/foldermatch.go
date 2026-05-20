@@ -69,6 +69,21 @@ func tokenize(s string) []string {
 	s = strings.ReplaceAll(s, "/", " ")
 	s = strings.ReplaceAll(s, "-", " ")
 
+	noise := map[string]bool{
+		"training":  true,
+		"plan":      true,
+		"worksheet": true,
+		"team":      true,
+		"4way":      true,
+		"2way":      true,
+		"3way":      true,
+		"8way":      true,
+		"skills":    true,
+		"coaching":  true,
+		"camp":      true,
+		"workshop":  true,
+	}
+
 	fields := strings.Fields(s)
 	var tokens []string
 	for _, f := range fields {
@@ -76,7 +91,11 @@ func tokenize(s string) []string {
 		if f == "" {
 			continue
 		}
+		if noise[f] {
+			continue
+		}
 		tokens = append(tokens, f)
 	}
 	return tokens
 }
+
